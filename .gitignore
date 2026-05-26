@@ -1,0 +1,39 @@
+# === TARS data-safety .gitignore — deny by intent, not just by name ===
+
+# Secrets and credentials (never commit, ever)
+*.env
+.env*
+*token*
+*secret*
+*.pem
+*.key
+*.p12
+*.pfx
+*.keychain
+credentials*
+config.local.*
+**/auth/*.json
+
+# OS credential / cloud dirs that may get symlinked or copied in by mistake
+.aws/
+.ssh/
+.config/
+
+# Real user data captured during a run — output, never source
+/runs/
+/out/
+*.local
+*.local.*
+sample-data-with-real-content*
+**/real-vault/**
+
+# Any path that looks like a live Obsidian / second-brain vault
+**/Obsidian Vault/**
+**/iCloud~md~obsidian/**
+**/*vault*/Notes/**
+**/*vault*/00_System/**
+
+# Node
+node_modules/
+npm-debug.log*
+.DS_Store

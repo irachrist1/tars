@@ -1,0 +1,16 @@
+{
+  "name": "tars",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Second Brain Bootstrapper — a Claude skill that inspects a machine, infers who the user is, and scaffolds a personalized, maintainable markdown second brain.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "index": "node scripts/index/local-index.mjs",
+    "scan": "node scripts/precommit-scan.mjs",
+    "install-hooks": "ln -sf ../../scripts/precommit-scan.mjs .git/hooks/pre-commit && chmod +x scripts/precommit-scan.mjs && echo 'pre-commit hook installed'"
+  },
+  "dependencies": {}
+}

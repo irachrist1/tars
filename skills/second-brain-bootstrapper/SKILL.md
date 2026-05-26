@@ -1,0 +1,85 @@
+---
+name: second-brain-bootstrapper
+description: Turn a blank or messy machine into an organized, maintainable markdown second brain. Use when a user wants to set up a personal knowledge/AI system, "build me a second brain", bootstrap a notes/vault system, organize their files and tools into one place, or onboard onto a Claude-based personal operating system. Inspects the machine, infers who the user is, indexes what they already have, confirms with a few sharp questions, then scaffolds a personalized vault + CLAUDE.md + memory system. Works connector-first (Microsoft 365 / Google / Granola via the user's existing Claude connectors) and produces a working result even with zero integrations.
+---
+
+# Second Brain Bootstrapper (TARS)
+
+Transform a machine into an organized second brain. The output is a markdown vault plus a maintainable operating manual the user runs from their existing Claude client. Not an app.
+
+**Operating principles (do not violate):**
+- **On-device + consent.** Every probe and every write is announced and run only on a yes. Consent for one step is not consent for the next.
+- **Connectors over credentials.** Use the user's connected Claude tools for email/calendar/files/meetings. Never build OAuth or store tokens during a normal run.
+- **Lead with the cheap wow.** Run the local index before asking for any integration.
+- **Infer, then confirm.** Never ask cold. Use what the machine shows to make onboarding questions specific confirmations.
+- **Capabilities, not tools.** Reason in terms of notes / tasks / calendar / meeting-notes / email / read-later / behavior-data. See `references/capability-model.md`.
+
+Run these stages in order. Keep narration short. Show, don't explain.
+
+## 1. Detect
+
+Identify OS, then enumerate installed apps and the default browser/mail client to learn what the user actually uses.
+
+- **Windows:** `pwsh -File scripts/detect/windows-probe.ps1 -Json` (registry uninstall keys, winget, Start Menu, default handlers, OneDrive/M365 presence).
+- **macOS:** `node scripts/detect/mac-probe.mjs` (`/Applications`, `brew list`, app-support footprints).
+
+Map raw signals to the capability model with `node scripts/detect/normalize.mjs`. Hold the result as `capabilities.json` for this session. Do not print the raw dump; summarize.
+
+## 2. Index — the cheap wow
+
+Run the local file index. This needs no integration and proves value immediately.
+
+```
+node scripts/index/local-index.mjs            # human summary
+node scripts/index/local-index.mjs --json     # for your own reasoning
+```
+
+Turn the output into one punchy line: *"Last 30 days on this machine: N active projects, N meeting notes, N deadline-flavored files, N files I can organize."* This is metadata only. Say so.
+
+If a connector is present (Microsoft 365 / Google / Granola), offer to enrich the index with a 30-day count of meetings and threads via that connector. If none is connected, continue. **Never** block on an integration.
+
+## 3. Profile — infer identity
+
+From detection + index, infer the archetype(s): student, consultant, developer, writer, researcher, operator. Most people are a blend. Read `references/capability-model.md` for the signal→archetype mapping. Draft a one-paragraph identity guess. Do not show it yet — it feeds the interview.
+
+## 4. Interview — confirm + gap-fill (≤ 8 questions)
+
+Lead with the inference. Questions are sharp confirmations, not generic prompts. Examples:
+- "You've got VS Code, git, and an Outlook default. You build, and you live in Microsoft 365 — right?"
+- "I see an active 'Clients' folder and weekly meeting notes. You consult on the side?"
+
+Only ask what you genuinely cannot infer (interface preference, what to keep private, naming). Cap at 8. See `references/stages.md` for the question bank.
+
+## 5. Propose — the consent gate
+
+Show, in chat, before writing anything:
+1. The proposed vault folder structure.
+2. The generated `CLAUDE.md` (filled from templates + profile), in full.
+3. The capability/integration plan (what's connector-backed, what's manual).
+
+Wait for an explicit yes. Offer edits. Nothing is written before approval.
+
+## 6. Scaffold + first-brief
+
+On approval:
+```
+node scripts/scaffold/scaffold-vault.mjs --profile <profile.json> --dest "<vault path>"
+```
+This writes the vault skeleton, the parameterized `CLAUDE.md` (~300-line ceiling, a pointer not a dump), `MEMORY.md` (~150-line index), the `memory/*.md` scoped files, and `00_System/` routing/identity. See `references/memory-architecture.md` for the split rules and ceilings.
+
+Then prove it live. Pull the user's last meeting through the connected M365/Granola/Google connector and print a real brief in under 60 seconds:
+```
+node scripts/scaffold/first-brief.mjs
+```
+
+Close by telling the user where the vault is and how to live in it: open the Claude client, point it at the vault, talk to it. Done.
+
+## Maintainability (what gets generated, why it lasts)
+
+The generated system is engineered to not rot:
+- `CLAUDE.md` holds prescriptive always/never rules + routing, capped at ~300 lines.
+- `MEMORY.md` is a ~150-line index pointing to single-topic `memory/*.md` files (frontmatter: name, description, type), loaded only when relevant.
+- Changing facts live in memory files; rules live in `CLAUDE.md`; never duplicated.
+- A session-audit behavior files new rules/facts silently and archives past the ceiling.
+
+Full rationale and the templates: `references/memory-architecture.md`.
