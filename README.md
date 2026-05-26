@@ -22,9 +22,20 @@ Build me a second brain.
 
 The skill takes over from there. (While the repo is private you'll need a GitHub token in your environment, or clone and `npx skills@latest add ./tars`. The one-liner above is the experience once it's public.)
 
+## Two skills: set it up, then run it
+
+TARS ships two complementary skills. The bootstrapper *creates* the second brain once; Jarvis *runs* it every day.
+
+| Skill | Role | Invoke |
+|---|---|---|
+| `skills/second-brain-bootstrapper/` | One-time setup — detect, profile, scaffold the vault + operating manual | "Build me a second brain." |
+| `skills/jarvis/` | Daily driver — scans the machine each session, builds persistent memory, answers real questions about your actual day ("how many hours on this client this week?", "what's overdue?", "how much time on YouTube?") | `/jarvis` |
+
+(Jarvis was previously the standalone `jarvis-claude` repo; it's merged here so setup and daily use live in one place. Its original pitch is preserved at `docs/jarvis-readme-legacy.md`.)
+
 ## What it is (and is not)
 
-- **Is:** a Claude skill (`skills/second-brain-bootstrapper/SKILL.md`) plus local helper scripts.
+- **Is:** Claude skills (`skills/`) plus local helper scripts.
 - **Is not:** a desktop app, a CLI for end users, or an MCP server. An MCP server is a possible *later* evolution, not built now.
 
 ## Core design
