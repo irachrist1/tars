@@ -35,8 +35,8 @@
     { "id": "gdrive",     "match": "google drive|drive file stream", "capability": "files",         "tier": "connector" },
     { "id": "dropbox",    "match": "dropbox",                        "capability": "files",         "tier": "local",     "note": "synced folder on disk" },
 
-    { "id": "rescuetime", "match": "rescuetime",                     "capability": "behavior-data", "tier": "manual" },
-    { "id": "daylens",    "match": "daylens",                        "capability": "behavior-data", "tier": "local",     "note": "local sqlite" },
+    { "id": "rescuetime",   "match": "rescuetime",                   "capability": "behavior-data", "tier": "manual" },
+    { "id": "activitywatch","match": "activitywatch",                "capability": "behavior-data", "tier": "local",     "note": "local sqlite-backed time tracker" },
 
     { "id": "vscode",     "match": "visual studio code|vscode|code - ", "capability": "code",       "tier": "local",     "signal": "developer" },
     { "id": "cursor",     "match": "cursor",                         "capability": "code",          "tier": "local",     "signal": "developer" },

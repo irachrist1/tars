@@ -46,7 +46,7 @@ const CONNECTOR_OF = {
   'ms-todo': 'Microsoft 365', teams: 'Microsoft 365', onedrive: 'Microsoft 365',
   gmail: 'Google', gcal: 'Google', gdrive: 'Google',
   granola: 'Granola', notion: 'Notion',
-  daylens: 'Daylens (local DB)', dropbox: 'Dropbox (local folder)',
+  activitywatch: 'ActivityWatch (local DB)', dropbox: 'Dropbox (local folder)',
   raindrop: 'Raindrop (API)', pocket: 'Pocket (API)', instapaper: 'Instapaper (API)',
   ticktick: 'TickTick (API)', todoist: 'Todoist (API)',
   otter: 'Otter (manual)', fireflies: 'Fireflies (manual)', zoom: 'Zoom (manual)',

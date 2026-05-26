@@ -67,10 +67,11 @@ node scripts/scaffold/scaffold-vault.mjs --profile <profile.json> --dest "<vault
 ```
 This writes the vault skeleton, the parameterized `CLAUDE.md` (~300-line ceiling, a pointer not a dump), `MEMORY.md` (~150-line index), the `memory/*.md` scoped files, and `00_System/` routing/identity. See `references/memory-architecture.md` for the split rules and ceilings.
 
-Then prove it live. Pull the user's last meeting through the connected M365/Granola/Google connector and print a real brief in under 60 seconds:
+Then prove it live, in under 60 seconds. A Node script cannot reach the user's connectors, so **you** do the fetch: call the connected Microsoft 365 / Granola / Google tools for the last meeting, today's calendar, and recent threads, assemble a small JSON, and pipe it to the formatter, which renders and files the brief:
 ```
-node scripts/scaffold/first-brief.mjs
+echo '<brief.json>' | node scripts/scaffold/first-brief.mjs --dest "<vault path>"
 ```
+If no connector is present, run it with no input. It produces a valid brief that tells the user how to connect one. The brain still works.
 
 Close by telling the user where the vault is and how to live in it: open the Claude client, point it at the vault, talk to it. Done.
 
