@@ -41,6 +41,20 @@ Gap-fillers (pick what's missing):
 
 Stop at 8. Fewer is better. If the inference was strong, three may do.
 
+### Needs discovery (2–4, after identity is confirmed)
+
+Identity is who they are; needs is what to build. Detection can't infer intent, so ask.
+grill-me style — concrete, slightly pushy, no generic "what are your goals":
+- "What breaks for you today that this should fix?"
+- "What decision are you trying to make this week?"
+- "What do you reach for and can't find?"
+- "If this saved you an hour a week, where would that hour come from?"
+
+For an operator/consultant this pass outranks identity confirmation — it defines the value.
+Capture answers as a `needs` block in the profile; it drives folder structure, default
+behaviors, and capability priority. Example: "I lose track of deadlines across my
+businesses" → prioritize a cross-entity deadline view, not a generic notes folder.
+
 ## Propose — the consent gate
 
 Show, in chat, in this order, and then wait:

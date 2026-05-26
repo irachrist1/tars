@@ -4,7 +4,9 @@
 // folders are active, what looks like a project or a meeting note.
 //
 // Hard rules:
-//   - Reads filesystem METADATA only (name, size, mtime). NEVER opens a file.
+//   - Default: reads filesystem METADATA only (name, size, mtime). NEVER opens a file.
+//   - With --read-active: opens a CAPPED set of recent text files (md/txt/csv) for a
+//     short preview, to combat lying filenames. Consent-gated by the skill.
 //   - NEVER transmits anything. Prints to stdout for the local Claude session.
 //   - Ruthless about noise: skips caches, system dirs, dependency trees.
 //
@@ -12,12 +14,13 @@
 //   node local-index.mjs                 # default doc roots for this OS
 //   node local-index.mjs --days 30       # activity window (default 30)
 //   node local-index.mjs --roots "/a,/b" # override roots
+//   node local-index.mjs --read-active   # sample-read recent text files (capped)
 //   node local-index.mjs --json          # machine-readable output for the skill
 //
 // Output is a summary the skill turns into: "Here's your last N days:
 // X projects, Y meetings, Z deadlines-worth of files I can organize."
 
-import { readdir, stat } from 'node:fs/promises';
+import { readdir, stat, open } from 'node:fs/promises';
 import { homedir, platform } from 'node:os';
 import { join, extname, basename } from 'node:path';
 
@@ -30,8 +33,12 @@ const getArg = (flag, def) => {
 const DAYS = parseInt(getArg('--days', '30'), 10);
 const AS_JSON = argv.includes('--json');
 const CUSTOM_ROOTS = getArg('--roots', '');
+const READ_ACTIVE = argv.includes('--read-active');
+const MAX_READ = parseInt(getArg('--max-read', '25'), 10);
+const READABLE = new Set(['.md', '.txt', '.csv', '.tsv']);
 const WINDOW_MS = DAYS * 24 * 60 * 60 * 1000;
 const now = Date.now();
+const recentReadable = []; // {path,name,mtimeMs} collected during walk for optional sampling
 
 // ---- where to look --------------------------------------------------------
 function defaultRoots() {
@@ -138,6 +145,7 @@ async function walk(dir, depth) {
         stats.activeFolders.set(folder, (stats.activeFolders.get(folder) || 0) + 1);
         if (MEETING_RE.test(name)) stats.meetingFiles++;
         if (DEADLINE_RE.test(name)) stats.deadlineFiles++;
+        if (READ_ACTIVE && READABLE.has(ext)) recentReadable.push({ path: join(dir, name), name, mtimeMs: st.mtimeMs });
       }
     }
   }
@@ -157,6 +165,22 @@ const topFolders = [...stats.activeFolders.entries()]
   .slice(0, 12)
   .map(([folder, count]) => ({ folder, recentFiles: count }));
 
+// ---- optional content sampling (combats lying filenames) ------------------
+let samples = [];
+if (READ_ACTIVE && recentReadable.length) {
+  recentReadable.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  for (const f of recentReadable.slice(0, MAX_READ)) {
+    try {
+      const fh = await open(f.path, 'r');
+      const buf = Buffer.alloc(1024);
+      const { bytesRead } = await fh.read(buf, 0, 1024, 0);
+      await fh.close();
+      const preview = buf.toString('utf8', 0, bytesRead).replace(/\s+/g, ' ').trim().slice(0, 200);
+      samples.push({ name: f.name, modified: new Date(f.mtimeMs).toISOString().slice(0, 10), preview });
+    } catch { /* unreadable — skip */ }
+  }
+}
+
 const result = {
   generatedAt: new Date().toISOString(),
   os: platform(),
@@ -174,8 +198,11 @@ const result = {
     deadlineFlavoredFiles: stats.deadlineFiles,
   },
   topActiveFolders: topFolders,
+  contentSamples: samples,
   truncated: stats.truncated,
-  note: 'Metadata only. No file contents were read. Nothing was transmitted.',
+  note: READ_ACTIVE
+    ? `Metadata for all; first 1KB sampled from up to ${MAX_READ} recent text files. Nothing transmitted.`
+    : 'Metadata only. No file contents were read. Nothing was transmitted.',
 };
 
 if (AS_JSON) {
