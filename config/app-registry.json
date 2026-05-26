@@ -1,0 +1,54 @@
+{
+  "_comment": "Maps detected apps to CAPABILITIES, not the other way round. 'match' is a case-insensitive regex tested against detected app names / package ids / shortcut names. 'tier' is the best adapter that app affords: connector (a Claude connector exists) > local (on-device API/files) > manual (paste/fallback). Extend freely; this is data, not code.",
+  "providers": [
+    { "id": "obsidian",   "match": "obsidian",                       "capability": "notes",         "tier": "local",     "interface": true,  "note": "markdown files on disk" },
+    { "id": "notion",     "match": "notion",                         "capability": "notes",         "tier": "connector", "interface": true,  "note": "Notion connector; use as synced VIEW, not source of truth" },
+    { "id": "onenote",    "match": "onenote|one note",               "capability": "notes",         "tier": "connector", "note": "via Microsoft 365 connector" },
+    { "id": "logseq",     "match": "logseq",                         "capability": "notes",         "tier": "local" },
+    { "id": "bear",       "match": "\\bbear\\b",                     "capability": "notes",         "tier": "local" },
+    { "id": "apple-notes","match": "^notes$|apple notes",            "capability": "notes",         "tier": "local",     "os": "darwin" },
+
+    { "id": "ms-todo",    "match": "microsoft to ?do|to ?do",        "capability": "tasks",         "tier": "connector", "note": "via Microsoft 365 connector" },
+    { "id": "todoist",    "match": "todoist",                        "capability": "tasks",         "tier": "manual",    "note": "API exists; no first-class Claude connector — manual/api" },
+    { "id": "ticktick",   "match": "ticktick|tick tick",             "capability": "tasks",         "tier": "manual",    "note": "open API via token" },
+    { "id": "things",     "match": "things ?3|culturedcode",         "capability": "tasks",         "tier": "local",     "os": "darwin" },
+    { "id": "omnifocus",  "match": "omnifocus",                      "capability": "tasks",         "tier": "local",     "os": "darwin" },
+
+    { "id": "outlook",    "match": "outlook",                        "capability": "email",         "tier": "connector", "note": "Microsoft 365 connector covers mail + calendar" },
+    { "id": "outlook-cal","match": "outlook",                        "capability": "calendar",      "tier": "connector" },
+    { "id": "gmail",      "match": "gmail",                          "capability": "email",         "tier": "connector", "note": "Google connector" },
+    { "id": "gcal",       "match": "google calendar|gcal",           "capability": "calendar",      "tier": "connector" },
+    { "id": "apple-mail", "match": "^mail$|apple mail",              "capability": "email",         "tier": "local",     "os": "darwin", "note": "osascript fallback" },
+    { "id": "apple-cal",  "match": "^calendar$|apple calendar",      "capability": "calendar",      "tier": "local",     "os": "darwin" },
+
+    { "id": "granola",    "match": "granola",                        "capability": "meeting-notes", "tier": "connector", "note": "Granola connector" },
+    { "id": "otter",      "match": "otter\\.ai|otter",               "capability": "meeting-notes", "tier": "manual" },
+    { "id": "fireflies",  "match": "fireflies",                      "capability": "meeting-notes", "tier": "manual" },
+    { "id": "teams",      "match": "microsoft teams|ms teams",       "capability": "meeting-notes", "tier": "connector", "note": "Teams meetings/chat via M365 connector" },
+    { "id": "zoom",       "match": "zoom",                           "capability": "meeting-notes", "tier": "manual" },
+
+    { "id": "raindrop",   "match": "raindrop",                       "capability": "read-later",    "tier": "manual",    "note": "open API via token" },
+    { "id": "pocket",     "match": "getpocket|pocket",               "capability": "read-later",    "tier": "manual" },
+    { "id": "instapaper", "match": "instapaper",                     "capability": "read-later",    "tier": "manual" },
+
+    { "id": "onedrive",   "match": "onedrive",                       "capability": "files",         "tier": "connector", "note": "via Microsoft 365 connector (SharePoint/OneDrive search)" },
+    { "id": "gdrive",     "match": "google drive|drive file stream", "capability": "files",         "tier": "connector" },
+    { "id": "dropbox",    "match": "dropbox",                        "capability": "files",         "tier": "local",     "note": "synced folder on disk" },
+
+    { "id": "rescuetime", "match": "rescuetime",                     "capability": "behavior-data", "tier": "manual" },
+    { "id": "daylens",    "match": "daylens",                        "capability": "behavior-data", "tier": "local",     "note": "local sqlite" },
+
+    { "id": "vscode",     "match": "visual studio code|vscode|code - ", "capability": "code",       "tier": "local",     "signal": "developer" },
+    { "id": "cursor",     "match": "cursor",                         "capability": "code",          "tier": "local",     "signal": "developer" },
+    { "id": "jetbrains",  "match": "intellij|pycharm|webstorm|jetbrains|goland|rider", "capability": "code", "tier": "local", "signal": "developer" },
+    { "id": "git",        "match": "\\bgit\\b|github desktop",       "capability": "code",          "tier": "local",     "signal": "developer" }
+  ],
+  "archetypeSignals": {
+    "developer":  { "capabilities": ["code"], "weight": 3 },
+    "writer":     { "capabilities": ["notes", "read-later"], "weight": 1 },
+    "operator":   { "capabilities": ["tasks", "calendar", "email"], "weight": 1 },
+    "consultant": { "capabilities": ["calendar", "meeting-notes", "email"], "weight": 1 },
+    "researcher": { "capabilities": ["read-later", "notes"], "weight": 1 },
+    "student":    { "capabilities": ["notes"], "weight": 1 }
+  }
+}
