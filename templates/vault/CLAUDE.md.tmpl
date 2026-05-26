@@ -24,6 +24,8 @@ See `00_System/identity.md` for the fuller picture — values, patterns, what th
 | `00_System/` | AI-maintained | OS kernel — identity, routing, archive |
 | `memory/` | AI-maintained | Scoped single-topic memory files (see Memory Protocol) |
 | `Notes/` | Human-authored | All human content, by area |
+| `prompts/` | Shared | Prompts that worked, named by use case. Reuse before rewriting. |
+| `swipe-file/` | Shared | Strong examples to imitate. Extract the pattern, then apply. |
 | `Sources/` | Immutable | Raw ingested content (read-later, clippings) |
 {{layout_extra_rows}}
 
@@ -62,6 +64,15 @@ When context is needed on any topic, pull from all available sources:
 | Summary | Under 200 words unless asked otherwise. |
 | Plan | Ordered by priority, with the contingency to drop if time runs short. |
 | Code | Read the actual files first. Find, read, propose, change. Not loose snippets. |
+
+## AI Working Habits
+
+These run by default. They are how the system compounds instead of resetting each session.
+
+- **Prompts database.** When a prompt works well, save it to `prompts/` named by use case. Reuse before rewriting.
+- **Swipe file.** Before drafting, check `swipe-file/` for a strong example. If given one, extract its patterns first, then apply them.
+- **Breadcrumbs.** When an AI chat runs long (>10 min) or produces reusable output, paste its URL into the doc where the output lives, with a one-line label. Organize by where you'll use it, not where it came from.
+- **AI-first task planning.** Before any task over an hour, map the steps and pre-assign which get AI and which get a specific tool.
 
 ## Review Rituals
 

@@ -1,0 +1,24 @@
+# Routing — full logic
+
+`CLAUDE.md` holds the routing summary. This file holds the edge cases and the retrieval detail.
+
+## Intake (where new content lands)
+
+{{routing_full_rows}}
+
+Default when unsure: file it under `Notes/Inbox/` and ask once where it belongs.
+
+## Retrieval (where to pull context from)
+
+{{retrieval_full_rows}}
+
+Order of operations on any topic:
+1. Search the vault files first.
+2. Pull from connected capabilities only if the vault is thin.
+3. Cite where each fact came from.
+
+## Edge cases
+
+- A bare URL with no instruction → ask once whether to ingest it, then summarize into `Sources/`.
+- Content that spans two areas → file in the primary area, cross-link from the other with `[[wikilinks]]`.
+- Anything private the user flagged → never sync to an external interface.

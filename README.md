@@ -6,6 +6,22 @@ The deliverable is a **transformation**, not an app. After setup the user lives 
 
 > Named for TARS in *Interstellar*: a portable unit that carries everything the crew needs, with adjustable settings. This ships the same thing — a portable, plain-markdown brain with an operating manual you tune per person.
 
+## Install
+
+One line, via the open [`skills`](https://github.com/vercel-labs/skills) CLI. Works in Claude Code, Cursor, Codex, and Claude Desktop (anything that reads `SKILL.md`):
+
+```bash
+npx skills@latest add irachrist1/tars
+```
+
+Then, in your Claude client:
+
+```
+Build me a second brain.
+```
+
+The skill takes over from there. (While the repo is private you'll need a GitHub token in your environment, or clone and `npx skills@latest add ./tars`. The one-liner above is the experience once it's public.)
+
 ## What it is (and is not)
 
 - **Is:** a Claude skill (`skills/second-brain-bootstrapper/SKILL.md`) plus local helper scripts.
@@ -43,12 +59,43 @@ Windows first (detection via registry / winget / Start Menu), macOS second. Inte
 ## Quick start (developer)
 
 ```bash
-npm run install-hooks          # install the pre-commit data-safety scan
-npm run index                  # see the cheap wow on your own machine
+npm run install-hooks                 # install the pre-commit data-safety scan
+npm run index                         # see the cheap wow on your own machine
+node scripts/detect/detect.mjs        # safe dry-run: capability map, no scaffolding
 ```
+
+`detect.mjs` is the safe entrypoint for testing on a fresh machine (especially Windows). It picks the right probe for the OS, prints the inferred capability map and archetypes, and writes nothing.
+
+## What a run looks like (synthetic)
+
+```
+You: build me a second brain
+
+TARS: Quick scan of your machine, app names only, nothing opened — ok? … done.
+      Last 30 days here: 11 active project folders, 4 meeting notes, 89 files I can organize.
+      You've got VS Code + git and an Outlook default. You build software and live in
+      Microsoft 365 — and there's an active "Clients" folder, so you also consult. Right?
+
+You: yep, and I'm finishing a degree
+
+TARS: Then you're developer + consultant + student. One interface question: most people
+      just talk to this in their Claude client. Want that, a Notion view, or Obsidian?
+
+You: conversation
+
+TARS: Here's the vault I'll create and the operating manual I'll write [shows tree + CLAUDE.md].
+      Nothing is written until you say go.
+
+You: go
+
+TARS: Done. Vault at ~/second-brain. Pulling your last meeting through the Microsoft 365
+      connector… brief filed. You now live in this from your Claude client.
+```
+
+All names and numbers above are illustrative. TARS uses synthetic placeholders everywhere; it never ships real data.
 
 ## Status
 
-Phase 0, in build. See `docs/phase-0-walkthrough.md` for the end-to-end target.
+Phase 0 complete and verified on macOS: detection, capability inference, the local index, the scaffolder, the connector-first first-brief (read live mail/calendar via the Microsoft 365 connector, no custom OAuth). `windows-probe.ps1` is written to the same contract and needs a Windows box to validate. See `docs/phase-0-walkthrough.md`.
 
-This repo is **private** and stays private. Templates are blank and synthetic. See `docs/data-safety.md`.
+This repo is **private** for now. We flip it public once the Windows path is verified. Templates are blank and synthetic. See `docs/data-safety.md`.

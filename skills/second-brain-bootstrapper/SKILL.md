@@ -18,12 +18,16 @@ Run these stages in order. Keep narration short. Show, don't explain.
 
 ## 1. Detect
 
-Identify OS, then enumerate installed apps and the default browser/mail client to learn what the user actually uses.
+Identify OS, then enumerate installed apps and the default browser/mail client to learn what the user actually uses. One entrypoint handles both platforms and never writes anything:
 
-- **Windows:** `pwsh -File scripts/detect/windows-probe.ps1 -Json` (registry uninstall keys, winget, Start Menu, default handlers, OneDrive/M365 presence).
-- **macOS:** `node scripts/detect/mac-probe.mjs` (`/Applications`, `brew list`, app-support footprints).
+```
+node scripts/detect/detect.mjs           # human capability map (safe dry-run)
+node scripts/detect/detect.mjs --json     # normalized JSON for your own reasoning
+```
 
-Map raw signals to the capability model with `node scripts/detect/normalize.mjs`. Hold the result as `capabilities.json` for this session. Do not print the raw dump; summarize.
+It runs `windows-probe.ps1` on Windows or `mac-probe.mjs` on macOS, pipes through `normalize.mjs`, and prints the capability map + archetype scores. Hold the `--json` result for this session. Do not print the raw dump; summarize.
+
+For a capability that resolves to no connector, no local hook, and no API (a native app with no integration at all), do not pretend it's missing — note that **Claude Cowork** can drive that app directly on the desktop. See `references/capability-model.md`.
 
 ## 2. Index — the cheap wow
 

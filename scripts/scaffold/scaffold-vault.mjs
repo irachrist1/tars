@@ -75,7 +75,7 @@ const HOW = (c) => {
 const arche = new Set(P.archetypes);
 
 // Notes subfolders by archetype + capabilities
-const folders = ['Notes/Inbox', 'Notes/Ideas', 'Notes/Journal', '00_System', 'memory', 'Sources'];
+const folders = ['Notes/Inbox', 'Notes/Ideas', 'Notes/Journal', '00_System', 'memory', 'prompts', 'swipe-file', 'Sources'];
 if (arche.has('developer')) folders.push('Notes/Projects');
 if (arche.has('consultant')) folders.push('Notes/Work', 'Notes/Clients');
 if (arche.has('student')) folders.push('Notes/Learning');
@@ -155,6 +155,8 @@ const fileplan = [
   ['00_System/identity.md.tmpl', '00_System/identity.md'],
   ['00_System/routing.md.tmpl', '00_System/routing.md'],
   ['00_System/archive.md.tmpl', '00_System/archive.md'],
+  ['prompts/_index.md.tmpl', 'prompts/_index.md'],
+  ['swipe-file/_index.md.tmpl', 'swipe-file/_index.md'],
 ];
 
 // ---- execute ---------------------------------------------------------------

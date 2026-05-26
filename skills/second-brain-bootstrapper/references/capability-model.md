@@ -26,6 +26,12 @@ Every capability resolves to the best tier an installed provider affords:
 
 The rule: **connector > local > manual**. `normalize.mjs` picks the highest tier available per capability.
 
+### The native-app gap → Claude Cowork
+
+Some capabilities live in a native desktop app with **no API and no connector at all** (a legacy line-of-business app, a niche notes tool, a desktop-only client). For these, the fallback below "manual paste" is **Claude Cowork** — Anthropic's desktop agent for knowledge work. Cowork runs on the desktop, sees local files and applications, and completes multi-step tasks across them with the user steering. It is "Claude Code for the rest of us": the non-developer surface where most of this work will actually happen.
+
+So the real escalation is **connector > local > manual paste > Claude Cowork drives the native app**. TARS should never use raw computer-use to script an app that has an API — but when there is genuinely no API, note Cowork as the path rather than pretending the capability doesn't exist. We do not automate Cowork from here; we point the user to it.
+
 ## Zero-integration guarantee
 
 If nothing resolves above `manual`, the brain still ships. `notes` is satisfied by plain markdown the moment the vault is scaffolded. Everything else degrades to "paste it in." A working second brain must never require an integration.

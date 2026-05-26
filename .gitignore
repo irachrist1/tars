@@ -27,11 +27,13 @@ config.local.*
 sample-data-with-real-content*
 **/real-vault/**
 
-# Any path that looks like a live Obsidian / second-brain vault
+# Any path that looks like a LIVE Obsidian / second-brain vault.
+# Note: templates/vault/** is intentional and tracked — it ships blank synthetic
+# templates, NOT a live vault. The pre-commit scan guards it against real data.
 **/Obsidian Vault/**
 **/iCloud~md~obsidian/**
-**/*vault*/Notes/**
-**/*vault*/00_System/**
+/runs/**/Notes/**
+/runs/**/00_System/**
 
 # Node
 node_modules/
