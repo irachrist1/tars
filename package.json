@@ -1,6 +1,6 @@
 {
   "name": "tars-chief-of-staff",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Chief of Staff on Claude — a skill that turns Claude into a chief of staff for a professional whose work lives in Microsoft 365 / OneDrive. Map + connector search + precedents + quiet self-maintenance.",
   "license": "UNLICENSED",
   "repository": {

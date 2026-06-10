@@ -94,6 +94,10 @@ console.log('');
 ok(`✓ chief-of-staff installed → ${dest}`);
 console.log('');
 
+// ---- if we got here the Node path succeeded; log it for the agent ----------
+// (The curl/PowerShell paths in install.sh / Install-Tars.ps1 are the fallback
+// for machines without Node. Agents that can't run npx should use those instead.)
+
 // ---- now actually start it -------------------------------------------------
 const claude = claudeAvailable();
 
@@ -109,12 +113,12 @@ if (interactive && claude && !has('--no-launch')) {
 
 // Not launching — tell whoever (or whatever) is reading how to start it.
 if (!interactive) {
-  // An agent or CI ran us. Speak to the agent; it can take it from here.
-  ok('Agent running this: do not stop here. Read');
+  // An agent ran us (no TTY). Speak directly to it.
+  ok('Agent: do not stop here. The skill is installed. Read');
   ok(`  ${join(dest, 'SKILL.md')}`);
-  ok('and follow it now — it detects any existing setup, otherwise it onboards the');
-  ok('user (first question: where their work is kept). The skill loads automatically');
-  ok('in future sessions.');
+  ok('then follow it now — it checks for an existing setup and either adopts it');
+  ok('or runs onboarding (first question: where their work is kept).');
+  ok('The skill loads automatically in future sessions.');
 } else if (claude) {
   ok('Start it any time with:');
   ok('  claude "set up my chief of staff"');

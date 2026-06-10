@@ -10,19 +10,29 @@ The deliverable is a **capability, not an app**. The user lives in their existin
 
 ## Install
 
-Published on npm — works on any machine with Node, no clone, no auth:
+Three paths — use whichever fits the machine.
 
+**Has Node / npm** (developers, Claude Code users):
 ```bash
 npx tars-chief-of-staff
 ```
+Interactive at a terminal: asks scope, offers to open Claude and start onboarding immediately. If an agent runs it in a pipe, it skips prompts, installs to `~/.claude/skills/`, and tells the agent to read SKILL.md and proceed.
 
-That copies the skill to `~/.claude/skills/chief-of-staff/` (use `--project` for `./.claude/skills`, `--force` to overwrite, `--uninstall` to remove). Then, in your Claude client:
-
+**Mac or Linux, no Node** (most corporate laptops):
+```sh
+curl -fsSL https://raw.githubusercontent.com/irachrist1/tars/main/install.sh | sh
 ```
-set up my chief of staff
+
+**Windows, no Node** (paste into PowerShell — right-click Start → Terminal):
+```powershell
+irm https://raw.githubusercontent.com/irachrist1/tars/main/Install-Tars.ps1 | iex
 ```
 
-If Claude Code is on the machine, the installer offers to open Claude and start setup right there — install to setup in one step. Otherwise it points you at your Claude client. The only thing to turn on is the **Microsoft 365 connector** (Settings → Connectors) so it can read your files, mail, and calendar. On claude.ai with the connector, the skill alone is enough — no terminal at all.
+All three install to `~/.claude/skills/chief-of-staff/` (or `$HOME\.claude\skills\` on Windows). Then open Claude and say **"set up my chief of staff"**.
+
+**For users who never open a terminal:** they don't need any of the above. An admin or operator runs one of the commands above on their machine, or uploads the skill to a shared Claude project. The user just opens their Claude client and talks.
+
+The only thing to turn on first is the **Microsoft 365 connector** (Claude client → Settings → Connectors) so it can read files, mail, and calendar.
 
 ## Onboarding (what the first session feels like)
 
