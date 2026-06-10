@@ -1,76 +1,81 @@
 # TARS — Chief of Staff on Claude
 
-A Claude **skill** that turns Claude into a chief of staff for a professional-services knowledge worker whose entire working life — years of client documents, meetings, mail — lives in Microsoft 365 / OneDrive.
+A Claude skill for professionals whose work lives in Microsoft 365. It reads your actual files, learns your operation, and acts like the person who knows where everything is.
 
-It keeps a lightweight map of the whole operation, finds anything via Microsoft 365 connector search (or a local scan), answers from the actual files **with citations**, connects documents/meetings/threads per client, drafts from the user's real precedents, quietly keeps its own notes current, and asks before anything risky.
+---
 
-The deliverable is a **capability, not an app**. The user lives in their existing Claude client (claude.ai, Claude Desktop, mobile). Their documents never move. The assistant's entire state is a small, human-readable markdown folder inside their own OneDrive.
+## The problem
 
-> Named for TARS in *Interstellar*: a portable unit that carries everything the crew needs, with adjustable settings.
+You open Claude. You describe a client. Claude gives you a generic answer.
+
+It doesn't know that the ACME proposal is due Friday. It doesn't know the asset register has a version conflict. It doesn't know you've been waiting three days on a reply from their controller. It doesn't know any of this, because you never told it — and you shouldn't have to.
+
+Most AI assistants are smart strangers. This one reads your work first.
+
+---
+
+## What it does
+
+On first run, it reads your OneDrive, calendar, email, and meetings — then comes back specific:
+
+> *"You're running four engagements. ACME has a proposal due Friday and two open items waiting on their side. This folder — `RWA-Restructure` — is that ACME or Globex work?"*
+
+Every answer cites the source file. Every draft pulls from your real past proposals, not a generic template. It keeps a small map of your operation and updates it quietly as things change.
+
+---
 
 ## Install
 
-Three paths — use whichever fits the machine.
-
-**Has Node / npm** (developers, Claude Code users):
-```bash
+**Claude Code** — paste this as a message, Claude runs it:
+```
 npx tars-chief-of-staff
 ```
-Interactive at a terminal: asks scope, offers to open Claude and start onboarding immediately. If an agent runs it in a pipe, it skips prompts, installs to `~/.claude/skills/`, and tells the agent to read SKILL.md and proceed.
 
-**Mac or Linux, no Node** (most corporate laptops):
+**Mac or Linux** — no Node required:
 ```sh
 curl -fsSL https://raw.githubusercontent.com/irachrist1/tars/main/install.sh | sh
 ```
 
-**Windows, no Node** (paste into PowerShell — right-click Start → Terminal):
+**Windows** — paste into PowerShell (right-click Start → Terminal):
 ```powershell
 irm https://raw.githubusercontent.com/irachrist1/tars/main/Install-Tars.ps1 | iex
 ```
 
-All three install to `~/.claude/skills/chief-of-staff/` (or `$HOME\.claude\skills\` on Windows). Then open Claude and say **"set up my chief of staff"**.
+Then open Claude and say: **"set up my chief of staff"**
 
-**For users who never open a terminal:** they don't need any of the above. An admin or operator runs one of the commands above on their machine, or uploads the skill to a shared Claude project. The user just opens their Claude client and talks.
+> Enable the **Microsoft 365 connector** in your Claude client (Settings → Connectors) so it can reach your files, mail, and calendar.
 
-The only thing to turn on first is the **Microsoft 365 connector** (Claude client → Settings → Connectors) so it can read files, mail, and calendar.
+---
 
-## Onboarding (what the first session feels like)
+## How it works
 
-Designed in full at `skills/chief-of-staff/references/onboarding.md`. The shape: it detects what it has (connector / file access / where OneDrive is), asks **one** question ("where is your work kept?"), reads the folder with consent, and comes back uncannily specific — your clients, what's live, the deadline it spotted, the folder it couldn't place. Four more plain questions (how you write, what matters, boundaries), one consent gate showing the proposed workspace, then it proves itself on a real question with a citation. Under 15 minutes, no ceremony.
+- **A map, not a dump.** It builds a lightweight `MAP.md` of your operation — what areas exist, what's live, where precedents live. Reads it at the start of every session. Never tries to load everything at once.
+- **Finds things, doesn't guess.** Uses Microsoft's own content search (the same index that powers M365 search) plus agentic query reformulation. Always cites the source file.
+- **Drafts from precedent.** Need a proposal? It pulls your last two, follows the structure, matches the voice. No stored style profiles — the real document is the ground truth.
+- **Stays current quietly.** After each session it files any corrections or changes into its small workspace (inside your own OneDrive). Tells you in one line what it updated. Never re-onboards.
+- **Asks before it acts.** Reads, drafts, and prepares freely. Sends nothing, deletes nothing, overwrites nothing without an explicit yes.
 
-## The product
+---
 
-| Piece | What |
-|---|---|
-| `skills/chief-of-staff/SKILL.md` | **The product.** Map + connector search + precedents + quiet self-maintenance + archiving + consent rule. |
-| `skills/chief-of-staff/references/` | Onboarding script, workspace file shapes. Loaded on demand. |
-| `skills/chief-of-staff/scripts/scan.mjs` | Local accelerator for map building: stat-only skeleton of tens of thousands of files in seconds. Optional — the connector-only path needs no install. |
-| `bin/install.mjs` | The npx installer. Copies the skill, prints next steps. No deps, no network. |
-| `docs/independent-review.md` | Why this architecture: the problem read, the verdict on prior directions, the build plan, what we deliberately don't build. |
+## For teams
 
-## Architecture in one paragraph
+Someone technical runs the install once per machine. Non-technical users never touch a terminal — they open Claude and talk.
 
-The corpus stays where it lives (OneDrive/SharePoint/Outlook) — never copied, never transformed. Retrieval is **map + search + just-in-time reading + citation**: a small agent-built `MAP.md` for orientation, Microsoft's own server-side content index (via the Claude Microsoft 365 connector) as the grep-equivalent, and an agentic loop that reads only the two or three files a task needs. "How their work is done" comes from **precedents fetched at task time**, not stored style profiles, plus a bounded `USER.md` of explicit corrections. The workspace updates itself quietly (session-audit, one-line notice, dated `LOG.md`) and asks one plain question when it cannot connect something search can't settle — never when looking would do.
+For a firm-wide rollout, install the skill at the org level via a shared Claude project. Every operator gets the same chief of staff, configured to their own files.
 
-## Delivery
+---
 
-Zero terminal. Org admin enables the Microsoft 365 connector once; the skill is uploaded at org level; the user says "set yourself up" in their Claude client. White-glove for the first customer; the same skill is the repeatable product.
+## What's inside
 
-## Status
-
-- `skills/chief-of-staff/SKILL.md` — current direction, connector-first. Phase 1 = run onboarding with the first real user and measure recall on 20 real questions (see `docs/independent-review.md` §e).
-- `skills/chief-of-staff/scripts/scan.mjs` — verified on macOS at scale.
-- `bin/install.mjs` — verified: install, clobber-guard, `--force`, `--uninstall`.
-- **Parked, kept for parts:** `skills/second-brain-bootstrapper/` (vault-transformation premise is wrong for this buyer; its memory-architecture discipline lives on in the workspace design) and `skills/jarvis/` (developer-persona machine scanning). See the review doc for the full reasoning.
-
-## Quick start (developer)
-
-```bash
-npm run install-hooks                                  # pre-commit data-safety scan
-node skills/chief-of-staff/scripts/scan.mjs --root "<a work folder>"   # map skeleton on your own files
-node bin/install.mjs --project                         # install the skill into this repo's .claude/skills
+```
+skills/
+  chief-of-staff/    # the skill — map, search, memory, onboarding
+  install/           # bootstrap skill: any agent can install from here
+install.sh           # curl pipe install for Mac/Linux
+Install-Tars.ps1     # PowerShell install for Windows
+bin/install.mjs      # npx installer (Node)
 ```
 
-## Data safety
+---
 
-On-device / in-tenant by default, consent before anything outbound or destructive, no tokens held (connectors only), templates synthetic, pre-commit scan as a hard gate. See `docs/data-safety.md`. The repo stays private.
+MIT License · Built by [Christian Tonny](https://github.com/irachrist1)
