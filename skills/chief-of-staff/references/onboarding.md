@@ -65,7 +65,8 @@ Open with the only question you need up front:
 Confirm, then announce the read once, plainly: *"Give me a few minutes with it.
 I'll only read — I won't move, change, or send anything."* Then deep-read:
 
-1. **Skeleton.** Full/local mode: run the scan (`node scripts/scan.mjs --root "<folder>" --json`).
+1. **Check for an existing second brain first.** Before proposing any workspace files, look for an Obsidian vault, Notion workspace, or markdown vault. Common locations: `~/Library/Mobile Documents/iCloud~md~obsidian/` (Obsidian on macOS), `~/Documents/Obsidian*`, a `CLAUDE.md` or `memory.md` anywhere prominent. If one exists, read its `CLAUDE.md` and memory files. Treat it as authoritative for identity, projects, people, and voice — never duplicate what it already holds. Your workspace covers only what it doesn't: storage topology across systems, new clients not yet in it, pointers. Adjust the proposed workspace accordingly before showing the user anything.
+2. **Skeleton.** Full/local mode: run the scan (`node scripts/scan.mjs --root "<folder>" --json`).
    Connector-only: list top-level folders, then the two levels under the busiest ones.
 2. **Sample for meaning.** Open a handful of real files in the biggest and the
    most recently active areas — enough to say what each area *is*, not just what
