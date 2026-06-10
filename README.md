@@ -22,7 +22,7 @@ That copies the skill to `~/.claude/skills/chief-of-staff/` (use `--project` for
 set up my chief of staff
 ```
 
-The only technical prerequisite is the **Microsoft 365 connector** enabled in the Claude client (Settings → Connectors; org admin consent if needed). No terminal for the end user — the npx line is for whoever provisions the machine; on claude.ai with the connector, the skill alone is enough.
+If Claude Code is on the machine, the installer offers to open Claude and start setup right there — install to setup in one step. Otherwise it points you at your Claude client. The only thing to turn on is the **Microsoft 365 connector** (Settings → Connectors) so it can read your files, mail, and calendar. On claude.ai with the connector, the skill alone is enough — no terminal at all.
 
 ## Onboarding (what the first session feels like)
 
