@@ -10,15 +10,13 @@ The deliverable is a **capability, not an app**. The user lives in their existin
 
 ## Install
 
-From a clone (works today):
+Published on npm — works on any machine with Node, no clone, no auth:
 
 ```bash
-npx tars-chief-of-staff            # while the repo is private: node bin/install.mjs
+npx tars-chief-of-staff
 ```
 
-That copies the skill to `~/.claude/skills/chief-of-staff/` (use `--project` for `./.claude/skills`, `--force` to overwrite, `--uninstall` to remove). Once the repo is public the same line works without a clone via `npx github:irachrist1/tars`, and the open [`skills`](https://github.com/vercel-labs/skills) CLI path works too: `npx skills@latest add irachrist1/tars`.
-
-Then, in your Claude client:
+That copies the skill to `~/.claude/skills/chief-of-staff/` (use `--project` for `./.claude/skills`, `--force` to overwrite, `--uninstall` to remove). Then, in your Claude client:
 
 ```
 set up my chief of staff
