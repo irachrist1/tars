@@ -1,8 +1,20 @@
 {
   "name": "tars-chief-of-staff",
   "version": "0.1.0",
-  "private": true,
   "description": "Chief of Staff on Claude — a skill that turns Claude into a chief of staff for a professional whose work lives in Microsoft 365 / OneDrive. Map + connector search + precedents + quiet self-maintenance.",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/irachrist1/tars.git"
+  },
+  "keywords": [
+    "claude",
+    "claude-skill",
+    "chief-of-staff",
+    "ai-assistant",
+    "microsoft-365",
+    "onedrive"
+  ],
   "type": "module",
   "bin": {
     "tars-chief-of-staff": "bin/install.mjs"
