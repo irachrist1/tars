@@ -25,7 +25,7 @@ The implication that drives everything below: **OneDrive is the primary index ta
 
 | System | The core idea | What we steal |
 |---|---|---|
-| **Apple (WWDC 2026)** | App Intents is now the mandatory layer: apps expose their content and actions so the system can find and act on them. A Spotlight-powered tool does **fully local RAG**. Siri becomes a generative command bar in Spotlight. | The winning pattern is **index + a pointer/intent layer + local retrieval**. Content has to be exposed to be findable. This is exactly your "root .md as pointer" idea, validated by Apple. |
+| **Apple (WWDC 2026 search rebuild)** | Apple rebuilt the **system search index** behind Spotlight, Mail, and Photos. It now indexes **all content on the device, old and new, continuously and almost immediately as it is captured**, and auto-reindexes after the OS update. | A device-wide index that is **always current**, not a one-time scan. This is the indexer you meant: it goes through everything and always knows where it is, so finding is instant. |
 | **OpenAI (Company Knowledge)** | Searches across connected org apps (Drive, Slack, GitHub, O365) and answers **with citations back to the source**, so you can verify. Framed as "make decisions, take action, get things done." MCP connectors with search/fetch. | **Citations to source** are how you earn trust. The "get things done" framing is the chief-of-staff posture. The search/fetch connector contract. |
 | **OpenHuman** (GPL-3.0, forkable) | Downloads connected sources, converts to Markdown, chunks (~3k tokens), indexes into a hierarchical **Memory Tree**: thematic nodes (work, finance, clients) → entities (people, companies, accounts) → raw documents. Relationships explicit, so cross-source queries work. Ships as a native Tauri desktop app. | The **Memory Tree** is the shape of your "index that knows where everything is." It also proves the **downloadable-app** delivery model for non-technical users. Near-reference architecture. |
 | **OpenClaw** (Steinberger, ~345k stars) | **Markdown files as the source of truth**, plus a `memory.sqlite` using `sqlite-vec` for vector embeddings = hybrid semantic + keyword search. Transparent, human-readable, version-controllable. Auto-compaction with a "memory flush" that promotes durable facts into markdown before trimming context. | The **index implementation**: markdown source of truth + `sqlite-vec`/FTS5 over chunked content. This is the missing layer in TARS, and it keeps our markdown thesis intact. |
@@ -36,6 +36,42 @@ The implication that drives everything below: **OneDrive is the primary index ta
 > Markdown as the source of truth, a semantic index over it, a hierarchical pointer tree, a proactive agent that acts and cites its sources.
 
 We are already right on markdown. Our gaps are the **index**, the **agent loop**, and the **delivery**. That is the whole to-do list.
+
+## 2b. Code-grounded findings (real repo clones, 2026-06-10)
+
+We cloned and read the actual source of OpenClaw and Hermes. Both are real and MIT-licensed. This is the implementable blueprint, not a summary.
+
+### OpenClaw (`github.com/openclaw/openclaw`, MIT) — the index blueprint
+
+TypeScript, `node:sqlite`. Markdown is the source of truth; SQLite is a rebuildable derivative.
+
+- **Schema:** `chunks(id, path, start_line, end_line, text, embedding TEXT, model, hash, ...)` is the row-of-record, with the embedding stored as JSON text so a no-`sqlite-vec` fallback works. Two pure index tables sit over it: `chunks_vec` (sqlite-vec `vec0`, `FLOAT[dims]`, KNN) and `chunks_fts` (FTS5). Plus `embedding_cache` (content-hash keyed) and `meta` (index identity).
+- **Change detection:** a `files(path, hash, mtime, size)` table plus a file watcher re-chunks only changed files. Incremental and continuous, the same model as Apple's.
+- **Chunking:** ~400 tokens, 80 overlap, line-based, preserves `start_line`/`end_line`, which is what powers citations as `path#Lx-Ly`.
+- **Embeddings:** default OpenAI `text-embedding-3-small` (1536d), pluggable to local (Ollama / llama.cpp). A content-hash cache makes reindex cheap.
+- **Hybrid retrieval:** vector (cosine via `vec_distance_cosine`) plus FTS5 BM25, fused at **0.7 vector / 0.3 keyword**, then temporal decay and MMR diversity. Every result carries a source citation.
+- **"Dreaming":** a cron background process promotes durable, frequently-recalled facts from sessions into the markdown files, written inside HTML-comment-delimited managed blocks so the user's own edits survive.
+- **Traps they document in code:** `vec0` defaults to L2 not cosine (compute cosine in the SELECT); the JS cosine fallback is a full scan (fine for a memory folder, painful for a large OneDrive, so make `sqlite-vec` a hard dependency at scale); FTS5 `MATCH` breaks on some tokenizers (carry a `LIKE` fallback).
+
+This is essentially the index you described, already built and MIT-licensed. We adapt it by swapping the source from a local memory folder to **OneDrive** (use Microsoft Graph file id + cTag/eTag and delta query for change detection instead of mtime/hash), and keep the markdown pointer layer the user can edit.
+
+### Hermes (`github.com/NousResearch/hermes-agent`, MIT) — the "knows you" blueprint
+
+Python. Two things to lift:
+
+- **Skills:** an interval-nudged **background self-review fork** (every ~10 tool-iterations) runs *after* the user response, with a tool whitelist limited to memory and skill management, and decides what to save or patch. A strict **preference ladder** (patch a loaded skill → patch an umbrella skill → add a support file → only then create new) prevents skill sprawl. A **"Do NOT capture" list** stops the agent from hardening transient or environment failures into permanent false constraints. Lifecycle: active → stale (30d) → archived (90d), **archive never delete**, with provenance separation so auto-curation never touches user-authored content. The review prompts themselves are the highest-value thing to steal.
+- **User model:** a bounded **`USER.md`** (who they are) kept separate from **`MEMORY.md`** (state and how-to), injected as a **frozen snapshot** at session start to protect the prefix cache, written durably mid-session but only surfaced next session. SQLite + FTS5 for cross-session recall. An optional dialectic layer reasons *after* turns to build an evolving model of the user beyond what they explicitly said.
+
+### OpenAI "Dreaming" + Apple's rebuild — the convergence, confirmed
+
+- **OpenAI Dreaming (June 4, 2026):** a single **asynchronous background process** synthesizes memory across many conversations, captures context automatically, and **rewrites existing memories as circumstances change** ("going to Singapore in July" becomes "went to Singapore in July 2026"). Plus a readable memory-summary page and topic controls. 5x cheaper to serve than before.
+- **Apple:** a rebuilt index covering old and new content, indexing **almost immediately as captured**.
+
+The lesson across all four: the index is not a one-time event. It is **continuously maintained**, and a **background synthesis loop** keeps it fresh and promotes durable facts. OpenClaw literally already calls its loop "dreaming," the same name OpenAI just used. We are not guessing at the architecture. It has converged, it is proven, and two implementations are MIT-licensed and sitting in our temp dir.
+
+### Engineering recommendation, sharpened
+
+Base TARS's index directly on **OpenClaw's architecture** (study the real schema we cloned): markdown source of truth, `chunks` / `chunks_vec` / `chunks_fts`, `files` change-detection, content-hash embedding cache, 0.7/0.3 hybrid fusion, `path#Lx-Ly` citations. Point the source adapter at **OneDrive via Microsoft Graph** using delta queries. Add a **near-real-time refresh** (Apple) and a **background "dreaming" synthesis** that keeps the map current and promotes durable facts (OpenAI/OpenClaw). Layer **Hermes's `USER.md` model, skills, and background self-review** on top so the chief-of-staff feels like it knows the person and improves. Do not fork a whole agent. The index is one layer, and we now have the exact, license-clean blueprint for it.
 
 ## 3. The architecture, centered on the index
 
@@ -121,8 +157,9 @@ The terminal-clone path is dead for this buyer. Three options:
 
 ## Sources
 
-- Apple WWDC 2026 / App Intents + local RAG: developer.apple.com/documentation/appintents; engadget WWDC 2026 recap; techtimes "App Intents Replaces SiriKit."
-- OpenAI Company Knowledge: openai.com/index/introducing-company-knowledge; OpenAI Help Center "Company knowledge."
+- **OpenClaw, real source cloned and read:** `github.com/openclaw/openclaw` (MIT). Schema, hybrid retrieval, and dreaming verified in code on 2026-06-10.
+- **Hermes, real source cloned and read:** `github.com/NousResearch/hermes-agent` (MIT). Skills, USER.md/MEMORY.md, FTS5 recall, Honcho dialectic verified in code on 2026-06-10.
+- Apple WWDC 2026 search-infrastructure rebuild: macrumors.com/2026/06/08/apple-rebuilds-search-infrastructure; techcrunch WWDC 2026 recap.
+- OpenAI "Dreaming" memory (June 4, 2026): openai.com blog "Dreaming: Better memory for a more helpful ChatGPT"; 9to5mac.com/2026/06/04 coverage.
+- OpenAI Company Knowledge: openai.com/index/introducing-company-knowledge.
 - OpenHuman architecture: pasqualepillitteri.it/en/news/2704 (OpenHuman local memory).
-- OpenClaw memory architecture: ppaolo.substack.com OpenClaw system architecture; shivamagarwal7.medium.com OpenClaw memory.
-- Hermes (Nous Research): hermes-ai.net; aibuilderclub.com Hermes self-improving agent.
