@@ -73,15 +73,30 @@
     to   { opacity: 1; transform: none; }
   }
 
-  /* ── TARS robot: four segmented slabs, walking X pose (movie-accurate) ── */
-  .tars-bot {
+  /* ── TARS robot: four segmented slabs (movie-accurate), draggable in 3D ── */
+  .tars-scene {
     position: absolute;
     right: 14%;
     top: 12%;
     width: 280px;
     height: 460px;
-    z-index: 1;
+    z-index: 3;
+    perspective: 1000px;
+    cursor: grab;
   }
+
+  .tars-scene:active { cursor: grabbing; }
+
+  .tars-bot {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transform: rotateY(-14deg) rotateX(4deg);
+    transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .tars-bot.dragging { transition: none; }
 
   .slab {
     position: absolute;
@@ -127,15 +142,29 @@
 
   @keyframes blink { 0%,100% { opacity: 0.9; } 50% { opacity: 0.2; } }
 
-  /* standing monolith: four parallel slabs, one gently sliding like TARS idling */
-  .slab:nth-child(1) { left: 0;     transform: translateY(10px); }
-  .slab:nth-child(2) { left: 68px;  transform: translateY(0); }
-  .slab:nth-child(3) { left: 136px; animation: slide3 5.5s ease-in-out infinite; }
-  .slab:nth-child(4) { left: 204px; transform: translateY(14px); }
+  /* walking gait: the two inner slabs alternate, like legs.
+     when one strides forward the other returns. outer slabs counter slightly. */
+  .slab:nth-child(1) { left: 0;     animation: stepOuterA 5s ease-in-out infinite; }
+  .slab:nth-child(2) { left: 68px;  animation: stepLegA   5s ease-in-out infinite; }
+  .slab:nth-child(3) { left: 136px; animation: stepLegB   5s ease-in-out infinite; }
+  .slab:nth-child(4) { left: 204px; animation: stepOuterB 5s ease-in-out infinite; }
 
-  @keyframes slide3 {
-    0%, 100% { transform: translateY(4px); }
-    50%      { transform: translateY(-26px); }
+  /* z-depth gives the body thickness when rotated in 3D */
+  @keyframes stepLegA {
+    0%, 100% { transform: translateZ(18px) translateY(-22px); }
+    50%      { transform: translateZ(18px) translateY(8px); }
+  }
+  @keyframes stepLegB {
+    0%, 100% { transform: translateZ(-18px) translateY(8px); }
+    50%      { transform: translateZ(-18px) translateY(-22px); }
+  }
+  @keyframes stepOuterA {
+    0%, 100% { transform: translateZ(-44px) translateY(12px); }
+    50%      { transform: translateZ(-44px) translateY(4px); }
+  }
+  @keyframes stepOuterB {
+    0%, 100% { transform: translateZ(44px) translateY(4px); }
+    50%      { transform: translateZ(44px) translateY(12px); }
   }
 
   #hero-canvas {
@@ -289,6 +318,65 @@
   .reveal { opacity: 0; transform: translateY(14px); transition: opacity 0.6s ease, transform 0.6s ease; }
   .reveal.in { opacity: 1; transform: none; }
 
+  /* ══ INSTALL CHIP: click to copy ══ */
+  .install-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 14px;
+    color: var(--ink);
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 11px 20px;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .install-chip:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    border-color: #c8c2ba;
+  }
+
+  .install-chip svg { flex-shrink: 0; opacity: 0.45; transition: opacity 0.2s; }
+  .install-chip:hover svg { opacity: 0.8; }
+
+  .install-chip .chip-label {
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+
+  .install-chip .chip-copied {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    font-family: -apple-system, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a7f4e;
+    background: #eef9f2;
+    opacity: 0;
+    transform: translateY(100%);
+    transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .install-chip.copied .chip-copied { opacity: 1; transform: none; }
+  .install-chip.copied .chip-label,
+  .install-chip.copied > svg { opacity: 0; }
+
+  .hero-install {
+    margin-top: 24px;
+    animation: fadeUp 0.9s ease 0.65s both;
+    position: relative;
+    z-index: 2;
+  }
+
   @media (max-width: 700px) {
     .hero { padding: 0 28px 64px; }
     .tars-bot { right: 2%; top: 6%; transform: scale(0.55); transform-origin: top right; }
@@ -319,18 +407,32 @@
 <section class="hero snap">
   <canvas id="hero-canvas"></canvas>
 
-  <!-- TARS: four segmented slabs in the walking X stance -->
-  <div class="tars-bot" aria-hidden="true">
-    <div class="slab"></div>
-    <div class="slab light"></div>
-    <div class="slab"></div>
-    <div class="slab"></div>
+  <!-- TARS: four segmented slabs, walking gait, drag to spin in 3D -->
+  <div class="tars-scene" id="tars-scene" title="Drag me">
+    <div class="tars-bot" id="tars-bot" aria-hidden="true">
+      <div class="slab"></div>
+      <div class="slab light"></div>
+      <div class="slab"></div>
+      <div class="slab"></div>
+    </div>
   </div>
 
   <div class="hero-text">
     <h1>TARS</h1>
     <p class="hero-tagline">Make your AI actually know your work.</p>
     <p class="hero-sub">Named after the robot from Interstellar. That TARS never asked for context. It knew the mission. This one works the same way.</p>
+    <div class="hero-install">
+      <button class="install-chip" data-copy="npx tars-chief-of-staff">
+        <span class="chip-label">npx tars-chief-of-staff</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+        <span class="chip-copied">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Copied
+        </span>
+      </button>
+    </div>
   </div>
 </section>
 
@@ -558,6 +660,16 @@
 <!-- ══════════════ FOOTER ══════════════ -->
 <footer class="footer-slide">
   <div class="footer-brand">TARS</div>
+  <button class="install-chip" data-copy="npx tars-chief-of-staff">
+    <span class="chip-label">npx tars-chief-of-staff</span>
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+    </svg>
+    <span class="chip-copied">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      Copied
+    </span>
+  </button>
   <div class="footer-links">
     <a href="https://github.com/irachrist1/tars" target="_blank">View on GitHub</a>
     <span style="color:var(--border)">·</span>
@@ -651,6 +763,76 @@ function updateCards() {
 
 window.addEventListener('scroll', updateCards, { passive: true });
 updateCards();
+
+// ── TARS 3D: drag to spin ──
+const scene = document.getElementById('tars-scene');
+const bot = document.getElementById('tars-bot');
+let rotY = -14, rotX = 4;
+let dragging = false, lastX = 0, lastY = 0;
+
+function applyRot() {
+  bot.style.transform = `rotateY(${rotY}deg) rotateX(${rotX}deg)`;
+}
+
+function startDrag(x, y) {
+  dragging = true;
+  lastX = x; lastY = y;
+  bot.classList.add('dragging');
+}
+
+function moveDrag(x, y) {
+  if (!dragging) return;
+  rotY += (x - lastX) * 0.45;
+  rotX -= (y - lastY) * 0.3;
+  rotX = Math.max(-40, Math.min(40, rotX));
+  lastX = x; lastY = y;
+  applyRot();
+}
+
+function endDrag() {
+  if (!dragging) return;
+  dragging = false;
+  bot.classList.remove('dragging');
+  // ease back toward the resting pose
+  rotY = -14; rotX = 4;
+  applyRot();
+}
+
+scene.addEventListener('mousedown', e => { e.preventDefault(); startDrag(e.clientX, e.clientY); });
+window.addEventListener('mousemove', e => moveDrag(e.clientX, e.clientY));
+window.addEventListener('mouseup', endDrag);
+scene.addEventListener('touchstart', e => startDrag(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+window.addEventListener('touchmove', e => { if (dragging) moveDrag(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+window.addEventListener('touchend', endDrag);
+
+// gentle tilt-follow on hover when not dragging
+scene.addEventListener('mousemove', e => {
+  if (dragging) return;
+  const r = scene.getBoundingClientRect();
+  const px = (e.clientX - r.left) / r.width - 0.5;
+  const py = (e.clientY - r.top) / r.height - 0.5;
+  bot.style.transform = `rotateY(${-14 + px * 26}deg) rotateX(${4 - py * 14}deg)`;
+});
+scene.addEventListener('mouseleave', () => { if (!dragging) { rotY = -14; rotX = 4; applyRot(); } });
+
+// ── INSTALL CHIPS: click to copy ──
+document.querySelectorAll('.install-chip').forEach(chip => {
+  chip.addEventListener('click', async () => {
+    const text = chip.dataset.copy;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    chip.classList.add('copied');
+    setTimeout(() => chip.classList.remove('copied'), 1600);
+  });
+});
 </script>
 
 </body>
