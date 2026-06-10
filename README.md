@@ -1,67 +1,61 @@
-# TARS — Chief of Staff on Claude
+# TARS
 
-A Claude skill for professionals whose work lives in Microsoft 365. It reads your actual files, learns your operation, and acts like the person who knows where everything is.
+Make your AI actually know your work.
 
----
-
-## The problem
-
-You open Claude. You describe a client. Claude gives you a generic answer.
-
-It doesn't know that the ACME proposal is due Friday. It doesn't know the asset register has a version conflict. It doesn't know you've been waiting three days on a reply from their controller. It doesn't know any of this, because you never told it — and you shouldn't have to.
-
-Most AI assistants are smart strangers. This one reads your work first.
+Named after the robot from Interstellar. That TARS never asked for context. It knew the mission. This one works the same way.
 
 ---
 
-## What it does
+## The problem is not memory.
 
-On first run, it reads your OneDrive, calendar, email, and meetings — then comes back specific:
+ChatGPT has memory. Claude has memory. They remember your name, your preferences, what you told them last week.
 
-> *"You're running four engagements. ACME has a proposal due Friday and two open items waiting on their side. This folder — `RWA-Restructure` — is that ACME or Globex work?"*
+What they cannot do is reach the work on your laptop. They cannot pull the right file, connect a meeting to an email to a proposal, or notice how you actually work. So you spell everything out, every time. Like teaching a toddler.
 
-Every answer cites the source file. Every draft pulls from your real past proposals, not a generic template. It keeps a small map of your operation and updates it quietly as things change.
+It should not be that way.
+
+## TARS is a context indexer for the AI tools you already use.
+
+Connect it once to your laptop. It indexes your files, email, calendar, and the tools you work in.
+
+On your way to a meeting, say: *"prep me for 3pm ACME with last year's numbers and the open items."* It finds everything and has the brief ready before you sit down.
+
+You keep your tools. TARS makes them know your work.
 
 ---
 
 ## Install
 
-**Claude Code** — paste this as a message, Claude runs it:
+**Claude Code** (paste as a message, Claude runs it):
 ```
 npx tars-chief-of-staff
 ```
 
-**Mac or Linux** — no Node required:
+**Mac or Linux** (no Node needed):
 ```sh
 curl -fsSL https://raw.githubusercontent.com/irachrist1/tars/main/install.sh | sh
 ```
 
-**Windows** — paste into PowerShell (right-click Start → Terminal):
+**Windows** (paste into PowerShell):
 ```powershell
 irm https://raw.githubusercontent.com/irachrist1/tars/main/Install-Tars.ps1 | iex
 ```
 
 Then open Claude and say: **"set up my chief of staff"**
 
-> Enable the **Microsoft 365 connector** in your Claude client (Settings → Connectors) so it can reach your files, mail, and calendar.
-
 ---
 
-## How it works
+## Here is how it works.
 
-- **A map, not a dump.** It builds a lightweight `MAP.md` of your operation — what areas exist, what's live, where precedents live. Reads it at the start of every session. Never tries to load everything at once.
-- **Finds things, doesn't guess.** Uses Microsoft's own content search (the same index that powers M365 search) plus agentic query reformulation. Always cites the source file.
-- **Drafts from precedent.** Need a proposal? It pulls your last two, follows the structure, matches the voice. No stored style profiles — the real document is the ground truth.
-- **Stays current quietly.** After each session it files any corrections or changes into its small workspace (inside your own OneDrive). Tells you in one line what it updated. Never re-onboards.
-- **Asks before it acts.** Reads, drafts, and prepares freely. Sends nothing, deletes nothing, overwrites nothing without an explicit yes.
+**It reads your work first.** First time you open it, TARS goes through your files, emails, calendar. It builds a live index of your operation. You explain nothing. It just reads.
 
----
+**It keeps a map, not a copy.** Your files stay where they are. TARS keeps a short index inside your own storage. A new hire who walked every filing cabinet on day one and always knows which drawer to open.
 
-## For teams
+**It spots patterns, not just keywords.** It connects your proposal to the meeting notes to the email thread. Asks once when it cannot place something. Records the answer. Never asks again.
 
-Someone technical runs the install once per machine. Non-technical users never touch a terminal — they open Claude and talk.
+**It drafts the way you do.** It pulls the last two proposals you wrote and follows them. Your structure, your voice, your precedents. Not a template.
 
-For a firm-wide rollout, install the skill at the org level via a shared Claude project. Every operator gets the same chief of staff, configured to their own files.
+**It stays current without making a thing out of it.** After each session, if anything changed, it updates its own notes and tells you in one line. No summary. No ceremony. Your tools just keep getting smarter.
 
 ---
 
@@ -69,13 +63,12 @@ For a firm-wide rollout, install the skill at the org level via a shared Claude 
 
 ```
 skills/
-  chief-of-staff/    # the skill — map, search, memory, onboarding
-  install/           # bootstrap skill: any agent can install from here
-install.sh           # curl pipe install for Mac/Linux
-Install-Tars.ps1     # PowerShell install for Windows
-bin/install.mjs      # npx installer (Node)
+  chief-of-staff/    the skill: index, search, memory, onboarding
+  install/           bootstrap skill so any agent can self-install
+docs/index.html      the landing page
+install.sh           Mac and Linux installer
+Install-Tars.ps1     Windows installer
+bin/install.mjs      npx installer
 ```
-
----
 
 MIT License · Built by [Christian Tonny](https://github.com/irachrist1)
