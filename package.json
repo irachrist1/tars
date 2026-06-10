@@ -1,14 +1,21 @@
 {
-  "name": "tars",
-  "version": "0.0.1",
+  "name": "tars-chief-of-staff",
+  "version": "0.1.0",
   "private": true,
-  "description": "Second Brain Bootstrapper — a Claude skill that inspects a machine, infers who the user is, and scaffolds a personalized, maintainable markdown second brain.",
+  "description": "Chief of Staff on Claude — a skill that turns Claude into a chief of staff for a professional whose work lives in Microsoft 365 / OneDrive. Map + connector search + precedents + quiet self-maintenance.",
   "type": "module",
+  "bin": {
+    "tars-chief-of-staff": "bin/install.mjs"
+  },
+  "files": [
+    "bin/",
+    "skills/chief-of-staff/"
+  ],
   "engines": {
     "node": ">=18"
   },
   "scripts": {
-    "index": "node scripts/index/local-index.mjs",
+    "install-skill": "node bin/install.mjs",
     "scan": "node scripts/precommit-scan.mjs",
     "install-hooks": "ln -sf ../../scripts/precommit-scan.mjs .git/hooks/pre-commit && chmod +x scripts/precommit-scan.mjs && echo 'pre-commit hook installed'"
   },

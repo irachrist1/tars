@@ -1,112 +1,68 @@
-# TARS — Second Brain Bootstrapper
+# TARS — Chief of Staff on Claude
 
-A Claude **skill** that turns a blank machine into an organized, maintainable second brain. It inspects the machine, infers who the user is, indexes what they already have, confirms with a few sharp questions, and scaffolds a personalized markdown vault with a parameterized operating manual.
+A Claude **skill** that turns Claude into a chief of staff for a professional-services knowledge worker whose entire working life — years of client documents, meetings, mail — lives in Microsoft 365 / OneDrive.
 
-The deliverable is a **transformation**, not an app. After setup the user lives in their existing Claude client plus plain markdown files. There is nothing to stare at.
+It keeps a lightweight map of the whole operation, finds anything via Microsoft 365 connector search (or a local scan), answers from the actual files **with citations**, connects documents/meetings/threads per client, drafts from the user's real precedents, quietly keeps its own notes current, and asks before anything risky.
 
-> Named for TARS in *Interstellar*: a portable unit that carries everything the crew needs, with adjustable settings. This ships the same thing — a portable, plain-markdown brain with an operating manual you tune per person.
+The deliverable is a **capability, not an app**. The user lives in their existing Claude client (claude.ai, Claude Desktop, mobile). Their documents never move. The assistant's entire state is a small, human-readable markdown folder inside their own OneDrive.
+
+> Named for TARS in *Interstellar*: a portable unit that carries everything the crew needs, with adjustable settings.
 
 ## Install
 
-One line, via the open [`skills`](https://github.com/vercel-labs/skills) CLI. Works in Claude Code, Cursor, Codex, and Claude Desktop (anything that reads `SKILL.md`):
+From a clone (works today):
 
 ```bash
-npx skills@latest add irachrist1/tars
+npx tars-chief-of-staff            # while the repo is private: node bin/install.mjs
 ```
+
+That copies the skill to `~/.claude/skills/chief-of-staff/` (use `--project` for `./.claude/skills`, `--force` to overwrite, `--uninstall` to remove). Once the repo is public the same line works without a clone via `npx github:irachrist1/tars`, and the open [`skills`](https://github.com/vercel-labs/skills) CLI path works too: `npx skills@latest add irachrist1/tars`.
 
 Then, in your Claude client:
 
 ```
-Build me a second brain.
+set up my chief of staff
 ```
 
-The skill takes over from there. (While the repo is private you'll need a GitHub token in your environment, or clone and `npx skills@latest add ./tars`. The one-liner above is the experience once it's public.)
+The only technical prerequisite is the **Microsoft 365 connector** enabled in the Claude client (Settings → Connectors; org admin consent if needed). No terminal for the end user — the npx line is for whoever provisions the machine; on claude.ai with the connector, the skill alone is enough.
 
-## Two skills: set it up, then run it
+## Onboarding (what the first session feels like)
 
-TARS ships two complementary skills. The bootstrapper *creates* the second brain once; Jarvis *runs* it every day.
+Designed in full at `skills/chief-of-staff/references/onboarding.md`. The shape: it detects what it has (connector / file access / where OneDrive is), asks **one** question ("where is your work kept?"), reads the folder with consent, and comes back uncannily specific — your clients, what's live, the deadline it spotted, the folder it couldn't place. Four more plain questions (how you write, what matters, boundaries), one consent gate showing the proposed workspace, then it proves itself on a real question with a citation. Under 15 minutes, no ceremony.
 
-| Skill | Role | Invoke |
-|---|---|---|
-| `skills/second-brain-bootstrapper/` | One-time setup — detect, profile, scaffold the vault + operating manual | "Build me a second brain." |
-| `skills/jarvis/` | Daily driver — scans the machine each session, builds persistent memory, answers real questions about your actual day ("how many hours on this client this week?", "what's overdue?", "how much time on YouTube?") | `/jarvis` |
+## The product
 
-(Jarvis was previously the standalone `jarvis-claude` repo; it's merged here so setup and daily use live in one place. Its original pitch is preserved at `docs/jarvis-readme-legacy.md`.)
-
-## What it is (and is not)
-
-- **Is:** Claude skills (`skills/`) plus local helper scripts.
-- **Is not:** a desktop app, a CLI for end users, or an MCP server. An MCP server is a possible *later* evolution, not built now.
-
-## Core design
-
-1. **Model capabilities, not tools.** notes, tasks, calendar, meeting-notes, email, read-later, behavior-data. Each resolves to a connector-tier, local-tier, or manual-fallback adapter. A working second brain is produced even with **zero** integrations.
-2. **Substrate is not interface.** Source of truth is plain markdown. The interface is per-user: conversation (default), Notion (a synced *view*, never the source), or Obsidian (technical users).
-3. **Connectors over credentials.** Microsoft 365, Google, and Granola come through the user's existing Claude connectors. TARS holds no tokens. (See `docs/azure-app-registration.md` for the rare deferred raw-Graph case.)
-4. **Lead with the cheap wow.** A local, consented file index runs first and needs no integration at all.
-5. **Infer identity, then confirm.** Because it can see the machine, the onboarding questions are specific confirmations, not cold generic prompts.
-6. **Generate a maintainable system.** A line-capped `CLAUDE.md` pointer plus a scoped `MEMORY.md` index, not a dumping ground.
-
-## Stages
-
-`detect → index (the wow) → profile → interview (≤8 qs) → propose (consent gate) → scaffold + first-brief`
-
-## Platform priority
-
-Windows first (detection via registry / winget / Start Menu), macOS second. Integrations are connector-first on every platform.
-
-## Layout
-
-| Path | What |
+| Piece | What |
 |---|---|
-| `skills/second-brain-bootstrapper/` | the skill (`SKILL.md` + on-demand references) |
-| `scripts/detect/` | machine detection probes |
-| `scripts/index/` | local file index (the cheap wow) |
-| `scripts/scaffold/` | vault writer + first-brief |
-| `templates/vault/` | blank, synthetic vault + `CLAUDE.md` + memory templates |
-| `config/` | capability schema |
-| `docs/` | data safety, walkthrough, deferred Azure path |
+| `skills/chief-of-staff/SKILL.md` | **The product.** Map + connector search + precedents + quiet self-maintenance + archiving + consent rule. |
+| `skills/chief-of-staff/references/` | Onboarding script, workspace file shapes. Loaded on demand. |
+| `skills/chief-of-staff/scripts/scan.mjs` | Local accelerator for map building: stat-only skeleton of tens of thousands of files in seconds. Optional — the connector-only path needs no install. |
+| `bin/install.mjs` | The npx installer. Copies the skill, prints next steps. No deps, no network. |
+| `docs/independent-review.md` | Why this architecture: the problem read, the verdict on prior directions, the build plan, what we deliberately don't build. |
+
+## Architecture in one paragraph
+
+The corpus stays where it lives (OneDrive/SharePoint/Outlook) — never copied, never transformed. Retrieval is **map + search + just-in-time reading + citation**: a small agent-built `MAP.md` for orientation, Microsoft's own server-side content index (via the Claude Microsoft 365 connector) as the grep-equivalent, and an agentic loop that reads only the two or three files a task needs. "How their work is done" comes from **precedents fetched at task time**, not stored style profiles, plus a bounded `USER.md` of explicit corrections. The workspace updates itself quietly (session-audit, one-line notice, dated `LOG.md`) and asks one plain question when it cannot connect something search can't settle — never when looking would do.
+
+## Delivery
+
+Zero terminal. Org admin enables the Microsoft 365 connector once; the skill is uploaded at org level; the user says "set yourself up" in their Claude client. White-glove for the first customer; the same skill is the repeatable product.
+
+## Status
+
+- `skills/chief-of-staff/SKILL.md` — current direction, connector-first. Phase 1 = run onboarding with the first real user and measure recall on 20 real questions (see `docs/independent-review.md` §e).
+- `skills/chief-of-staff/scripts/scan.mjs` — verified on macOS at scale.
+- `bin/install.mjs` — verified: install, clobber-guard, `--force`, `--uninstall`.
+- **Parked, kept for parts:** `skills/second-brain-bootstrapper/` (vault-transformation premise is wrong for this buyer; its memory-architecture discipline lives on in the workspace design) and `skills/jarvis/` (developer-persona machine scanning). See the review doc for the full reasoning.
 
 ## Quick start (developer)
 
 ```bash
-npm run install-hooks                 # install the pre-commit data-safety scan
-npm run index                         # see the cheap wow on your own machine
-node scripts/detect/detect.mjs        # safe dry-run: capability map, no scaffolding
+npm run install-hooks                                  # pre-commit data-safety scan
+node skills/chief-of-staff/scripts/scan.mjs --root "<a work folder>"   # map skeleton on your own files
+node bin/install.mjs --project                         # install the skill into this repo's .claude/skills
 ```
 
-`detect.mjs` is the safe entrypoint for testing on a fresh machine (especially Windows). It picks the right probe for the OS, prints the inferred capability map and archetypes, and writes nothing.
+## Data safety
 
-## What a run looks like (synthetic)
-
-```
-You: build me a second brain
-
-TARS: Quick scan of your machine, app names only, nothing opened — ok? … done.
-      Last 30 days here: 11 active project folders, 4 meeting notes, 89 files I can organize.
-      You've got VS Code + git and an Outlook default. You build software and live in
-      Microsoft 365 — and there's an active "Clients" folder, so you also consult. Right?
-
-You: yep, and I'm finishing a degree
-
-TARS: Then you're developer + consultant + student. One interface question: most people
-      just talk to this in their Claude client. Want that, a Notion view, or Obsidian?
-
-You: conversation
-
-TARS: Here's the vault I'll create and the operating manual I'll write [shows tree + CLAUDE.md].
-      Nothing is written until you say go.
-
-You: go
-
-TARS: Done. Vault at ~/second-brain. Pulling your last meeting through the Microsoft 365
-      connector… brief filed. You now live in this from your Claude client.
-```
-
-All names and numbers above are illustrative. TARS uses synthetic placeholders everywhere; it never ships real data.
-
-## Status
-
-Phase 0 complete and verified on macOS: detection, capability inference, the local index, the scaffolder, the connector-first first-brief (read live mail/calendar via the Microsoft 365 connector, no custom OAuth). `windows-probe.ps1` is written to the same contract and needs a Windows box to validate. See `docs/phase-0-walkthrough.md`.
-
-This repo is **private** for now. We flip it public once the Windows path is verified. Templates are blank and synthetic. See `docs/data-safety.md`.
+On-device / in-tenant by default, consent before anything outbound or destructive, no tokens held (connectors only), templates synthetic, pre-commit scan as a hard gate. See `docs/data-safety.md`. The repo stays private.
