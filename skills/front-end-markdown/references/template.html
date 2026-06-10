@@ -1,0 +1,859 @@
+<!--
+  REFERENCE IMPLEMENTATION for the front-end-markdown skill.
+  This is a real shipped page (the TARS landing page). Every mechanic in it
+  is debugged and working together:
+
+  - scroll-snap slides that click into place (html: y mandatory)
+  - a pinned section with internal .snap-step divs: one card reveals per
+    scroll click, stacks downward, never flickers, resets when you leave upward
+  - blur-in card reveals with maxRevealed tracking
+  - hero entrance stagger (fadeUp with delays)
+  - sparse canvas constellation confined away from the text
+  - a 3D draggable hero object (perspective + preserve-3d + translateZ layers,
+    drag to spin, hover tilt, eases back on release)
+  - click-to-copy chips with animated "Copied" state and clipboard fallback
+  - official brand SVG marks in <defs>, reused with <use>
+  - story SVG scene (person, speech bubbles, response) instead of a paragraph
+  - evenly spaced architecture diagram with dashed connectors
+
+  Adapt the content; keep the mechanics. Do not rebuild these from scratch.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TARS</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --cream: #f7f4ef;
+    --ink: #1a1a1a;
+    --muted: #9a9a8e;
+    --border: #e0dbd2;
+    --claude: #D97757;
+    --gpt: #10a37f;
+  }
+
+  html {
+    scroll-snap-type: y mandatory;
+    overflow-y: scroll;
+    height: 100%;
+  }
+
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .snap { scroll-snap-align: start; }
+
+  /* ══ HERO ══ */
+  .hero {
+    height: 100vh;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 0 72px 80px;
+    overflow: hidden;
+  }
+
+  .hero-text { position: relative; z-index: 2; max-width: 560px; }
+
+  .hero h1 {
+    font-family: Georgia, serif;
+    font-size: clamp(100px, 14vw, 148px);
+    font-weight: 400;
+    line-height: 0.9;
+    letter-spacing: -4px;
+    animation: fadeUp 0.9s ease 0.1s both;
+  }
+
+  .hero-tagline {
+    font-size: clamp(17px, 2.2vw, 22px);
+    color: #2a2a2a;
+    line-height: 1.5;
+    margin-top: 28px;
+    animation: fadeUp 0.9s ease 0.3s both;
+  }
+
+  .hero-sub {
+    font-size: 14px;
+    color: var(--muted);
+    margin-top: 10px;
+    line-height: 1.6;
+    animation: fadeUp 0.9s ease 0.5s both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* ── TARS robot: four segmented slabs (movie-accurate), draggable in 3D ── */
+  .tars-scene {
+    position: absolute;
+    right: 14%;
+    top: 12%;
+    width: 280px;
+    height: 460px;
+    z-index: 3;
+    perspective: 1000px;
+    cursor: grab;
+  }
+
+  .tars-scene:active { cursor: grabbing; }
+
+  .tars-bot {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transform: rotateY(-14deg) rotateX(4deg);
+    transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .tars-bot.dragging { transition: none; }
+
+  .slab {
+    position: absolute;
+    top: 0;
+    width: 64px;
+    height: 420px;
+    border-radius: 6px;
+    transform-origin: 50% 10%;
+    /* brushed metal */
+    background:
+      repeating-linear-gradient(0deg,
+        transparent 0px, transparent 96px,
+        rgba(0,0,0,0.55) 96px, rgba(0,0,0,0.55) 100px),
+      repeating-linear-gradient(90deg,
+        rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px,
+        transparent 1px, transparent 16px),
+      linear-gradient(180deg, #4e4c48 0%, #35332f 45%, #2a2825 100%);
+    box-shadow: inset 0 0 18px rgba(0,0,0,0.35), 2px 4px 18px rgba(0,0,0,0.18);
+  }
+
+  /* the dark band across the slab, like the movie */
+  .slab::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    top: 54%;
+    height: 38px;
+    background: #0d0c0b;
+  }
+
+  /* TARS interface light on one slab */
+  .slab.light::before {
+    content: '';
+    position: absolute;
+    top: 30px; left: 50%;
+    transform: translateX(-50%);
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #e8e4da;
+    z-index: 2;
+    animation: blink 3.4s ease-in-out infinite;
+  }
+
+  @keyframes blink { 0%,100% { opacity: 0.9; } 50% { opacity: 0.2; } }
+
+  /* walking gait: the two inner slabs alternate, like legs.
+     when one strides forward the other returns. outer slabs counter slightly. */
+  .slab:nth-child(1) { left: 0;     animation: stepOuterA 5s ease-in-out infinite; }
+  .slab:nth-child(2) { left: 68px;  animation: stepLegA   5s ease-in-out infinite; }
+  .slab:nth-child(3) { left: 136px; animation: stepLegB   5s ease-in-out infinite; }
+  .slab:nth-child(4) { left: 204px; animation: stepOuterB 5s ease-in-out infinite; }
+
+  /* z-depth gives the body thickness when rotated in 3D */
+  @keyframes stepLegA {
+    0%, 100% { transform: translateZ(18px) translateY(-22px); }
+    50%      { transform: translateZ(18px) translateY(8px); }
+  }
+  @keyframes stepLegB {
+    0%, 100% { transform: translateZ(-18px) translateY(8px); }
+    50%      { transform: translateZ(-18px) translateY(-22px); }
+  }
+  @keyframes stepOuterA {
+    0%, 100% { transform: translateZ(-44px) translateY(12px); }
+    50%      { transform: translateZ(-44px) translateY(4px); }
+  }
+  @keyframes stepOuterB {
+    0%, 100% { transform: translateZ(44px) translateY(4px); }
+    50%      { transform: translateZ(44px) translateY(12px); }
+  }
+
+  #hero-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  /* ══ SLIDES ══ */
+  .slide {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 72px;
+    border-top: 1px solid var(--border);
+  }
+
+  .inner { width: 100%; max-width: 1020px; margin: 0 auto; }
+
+  .problem .inner {
+    display: grid;
+    grid-template-columns: 1fr 1.1fr;
+    gap: 72px;
+    align-items: center;
+  }
+
+  .slide-copy h2 {
+    font-family: Georgia, serif;
+    font-size: clamp(26px, 3.4vw, 38px);
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: -0.5px;
+    margin-bottom: 24px;
+  }
+
+  .slide-copy p {
+    font-size: 16px;
+    color: #4a4a4a;
+    line-height: 1.75;
+    margin-bottom: 14px;
+  }
+  .slide-copy p:last-child { margin-bottom: 0; }
+
+  .layer .inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 40px;
+    text-align: center;
+  }
+
+  .layer h2 {
+    font-family: Georgia, serif;
+    font-size: clamp(26px, 3.8vw, 42px);
+    font-weight: 400;
+    letter-spacing: -0.5px;
+    line-height: 1.15;
+    max-width: 680px;
+  }
+
+  .layer p {
+    font-size: 16px;
+    color: #4a4a4a;
+    line-height: 1.75;
+    max-width: 580px;
+  }
+
+  /* ══ WORKS ══ */
+  .works-outer { height: 500vh; position: relative; }
+
+  .works-sticky {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 60px 72px;
+    border-top: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  /* invisible snap steps inside the works scroll */
+  .snap-step { height: 100vh; scroll-snap-align: start; }
+
+  .works-inner { width: 100%; max-width: 1020px; margin: 0 auto; }
+
+  .works-title {
+    font-family: Georgia, serif;
+    font-size: clamp(24px, 3vw, 36px);
+    font-weight: 400;
+    margin-bottom: 40px;
+  }
+
+  .cards-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .step-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px 28px;
+    display: flex;
+    gap: 18px;
+    align-items: flex-start;
+    opacity: 0;
+    filter: blur(14px);
+    transform: translateY(24px) scale(0.985);
+    transition: opacity 0.6s cubic-bezier(0.16,1,0.3,1),
+                filter 0.6s cubic-bezier(0.16,1,0.3,1),
+                transform 0.6s cubic-bezier(0.16,1,0.3,1);
+  }
+
+  .step-card.wide { grid-column: 1 / -1; }
+  .step-card.revealed { opacity: 1; filter: blur(0); transform: none; }
+
+  .step-icon {
+    width: 40px; height: 40px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--cream);
+  }
+
+  .step-text h3 { font-size: 15px; font-weight: 700; margin-bottom: 5px; }
+  .step-text p  { font-size: 13px; color: #5a5a5a; line-height: 1.6; }
+
+  /* ══ FOOTER ══ */
+  .footer-slide {
+    scroll-snap-align: end;
+    padding: 44px 72px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .footer-brand { font-family: Georgia, serif; font-size: 22px; }
+  .footer-links { display: flex; gap: 20px; align-items: center; }
+  .footer-links a { font-size: 14px; color: var(--muted); text-decoration: none; }
+  .footer-links a:hover { color: var(--ink); }
+
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity 0.6s ease, transform 0.6s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+
+  /* ══ INSTALL CHIP: click to copy ══ */
+  .install-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 14px;
+    color: var(--ink);
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 11px 20px;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .install-chip:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    border-color: #c8c2ba;
+  }
+
+  .install-chip svg { flex-shrink: 0; opacity: 0.45; transition: opacity 0.2s; }
+  .install-chip:hover svg { opacity: 0.8; }
+
+  .install-chip .chip-label {
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+
+  .install-chip .chip-copied {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    font-family: -apple-system, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a7f4e;
+    background: #eef9f2;
+    opacity: 0;
+    transform: translateY(100%);
+    transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .install-chip.copied .chip-copied { opacity: 1; transform: none; }
+  .install-chip.copied .chip-label,
+  .install-chip.copied > svg { opacity: 0; }
+
+  .hero-install {
+    margin-top: 24px;
+    animation: fadeUp 0.9s ease 0.65s both;
+    position: relative;
+    z-index: 2;
+  }
+
+  @media (max-width: 700px) {
+    .hero { padding: 0 28px 64px; }
+    .tars-bot { right: 2%; top: 6%; transform: scale(0.55); transform-origin: top right; }
+    .slide { padding: 48px 28px; height: auto; min-height: 100vh; }
+    .problem .inner { grid-template-columns: 1fr; gap: 40px; }
+    .cards-grid { grid-template-columns: 1fr; }
+    .works-sticky { padding: 48px 28px; }
+    .footer-slide { padding: 40px 28px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════ SVG DEFS: official brand marks ════ -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <g id="claude-mark">
+      <path fill="#D97757" d="M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.583.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312z"/>
+    </g>
+    <g id="openai-mark">
+      <path fill="#1a1a1a" d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.073zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.8956zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997z"/>
+    </g>
+  </defs>
+</svg>
+
+
+<!-- ══════════════ SLIDE 1: HERO ══════════════ -->
+<section class="hero snap">
+  <canvas id="hero-canvas"></canvas>
+
+  <!-- TARS: four segmented slabs, walking gait, drag to spin in 3D -->
+  <div class="tars-scene" id="tars-scene" title="Drag me">
+    <div class="tars-bot" id="tars-bot" aria-hidden="true">
+      <div class="slab"></div>
+      <div class="slab light"></div>
+      <div class="slab"></div>
+      <div class="slab"></div>
+    </div>
+  </div>
+
+  <div class="hero-text">
+    <h1>TARS</h1>
+    <p class="hero-tagline">Make your AI actually know your work.</p>
+    <p class="hero-sub">Named after the robot from Interstellar. That TARS never asked for context. It knew the mission. This one works the same way.</p>
+    <div class="hero-install">
+      <button class="install-chip" data-copy="npx tars-chief-of-staff">
+        <span class="chip-label">npx tars-chief-of-staff</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+        <span class="chip-copied">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Copied
+        </span>
+      </button>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════ SLIDE 2: THE PROBLEM ══════════════ -->
+<section class="slide problem snap">
+  <div class="inner">
+
+    <svg viewBox="0 0 400 380" width="100%" style="max-width:400px;" class="reveal">
+      <circle cx="56" cy="64" r="26" fill="#ece8e1"/>
+      <path d="M30 128 Q30 96 56 96 Q82 96 82 128 L82 148 L30 148Z" fill="#ece8e1"/>
+      <circle cx="48" cy="60" r="3" fill="#9a9a8e"/>
+      <circle cx="64" cy="60" r="3" fill="#9a9a8e"/>
+      <path d="M47 72 Q56 78 65 72" stroke="#9a9a8e" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+      <rect x="96" y="42" width="196" height="52" rx="11" fill="white" stroke="#e0dbd2" stroke-width="1.5"/>
+      <path d="M96 68 L82 78 L104 74Z" fill="white" stroke="#e0dbd2" stroke-width="1.5" stroke-linejoin="round"/>
+      <text x="194" y="64" text-anchor="middle" font-size="12" fill="#2a2a2a" font-family="-apple-system,sans-serif">Prep me for 3pm ACME.</text>
+      <text x="194" y="82" text-anchor="middle" font-size="12" fill="#2a2a2a" font-family="-apple-system,sans-serif">Grab last year's numbers.</text>
+
+      <line x1="194" y1="100" x2="148" y2="142" stroke="#e0dbd2" stroke-width="1.5"/>
+      <line x1="194" y1="100" x2="252" y2="142" stroke="#e0dbd2" stroke-width="1.5"/>
+
+      <g transform="translate(112,148)">
+        <circle r="34" fill="white" stroke="#ecdcd0" stroke-width="1.5"/>
+        <use href="#claude-mark" transform="translate(-15,-15) scale(1.25)"/>
+      </g>
+
+      <g transform="translate(288,148)">
+        <circle r="34" fill="white" stroke="#d8d5ce" stroke-width="1.5"/>
+        <use href="#openai-mark" transform="translate(-15,-15) scale(1.25)"/>
+      </g>
+
+      <line x1="112" y1="184" x2="140" y2="248" stroke="#e0dbd2" stroke-width="1.5"/>
+      <line x1="288" y1="184" x2="260" y2="248" stroke="#e0dbd2" stroke-width="1.5"/>
+
+      <rect x="68" y="254" width="264" height="56" rx="11" fill="#fff3f0" stroke="#f5c4b0" stroke-width="1.5"/>
+      <text x="200" y="277" text-anchor="middle" font-size="12" fill="#a05a3a" font-family="-apple-system,sans-serif">Which file? What numbers? I don't</text>
+      <text x="200" y="296" text-anchor="middle" font-size="12" fill="#a05a3a" font-family="-apple-system,sans-serif">know where to look. Paste it in.</text>
+
+      <circle cx="362" cy="182" r="16" fill="#ff3b30"/>
+      <line x1="355" y1="175" x2="369" y2="189" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="369" y1="175" x2="355" y2="189" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+
+    <div class="slide-copy reveal">
+      <h2>The problem is not memory.</h2>
+      <p>ChatGPT has memory. Claude has memory. They remember your name, your preferences, what you told them last week.</p>
+      <p>What they cannot do is reach the work on your laptop. They cannot pull the right file, connect a meeting to an email to a proposal, or notice how you actually work. So you spell everything out, every time. Like teaching a toddler.</p>
+      <p>It should not be that way.</p>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ══════════════ SLIDE 3: TARS THE LAYER ══════════════ -->
+<section class="slide layer snap">
+  <div class="inner">
+
+    <svg viewBox="0 0 760 320" width="100%" style="max-width:760px;" class="reveal">
+
+      <g transform="translate(30,20)">
+        <rect width="108" height="76" rx="14" fill="white" stroke="#e0dbd2" stroke-width="1.5"/>
+        <svg x="34" y="10" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6a6a6a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        <text x="54" y="66" text-anchor="middle" font-size="11" fill="#6a6a6a" font-family="-apple-system,sans-serif">Files</text>
+      </g>
+
+      <g transform="translate(178,20)">
+        <rect width="108" height="76" rx="14" fill="white" stroke="#e0dbd2" stroke-width="1.5"/>
+        <svg x="34" y="10" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6a6a6a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="4" width="20" height="16" rx="2"/>
+          <polyline points="22,6 12,13 2,6"/>
+        </svg>
+        <text x="54" y="66" text-anchor="middle" font-size="11" fill="#6a6a6a" font-family="-apple-system,sans-serif">Email</text>
+      </g>
+
+      <g transform="translate(326,20)">
+        <rect width="108" height="76" rx="14" fill="white" stroke="#e0dbd2" stroke-width="1.5"/>
+        <svg x="34" y="10" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6a6a6a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        <text x="54" y="66" text-anchor="middle" font-size="11" fill="#6a6a6a" font-family="-apple-system,sans-serif">Calendar</text>
+      </g>
+
+      <g transform="translate(474,20)">
+        <rect width="108" height="76" rx="14" fill="white" stroke="#e0dbd2" stroke-width="1.5"/>
+        <svg x="34" y="10" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6a6a6a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        <text x="54" y="66" text-anchor="middle" font-size="11" fill="#6a6a6a" font-family="-apple-system,sans-serif">Meetings</text>
+      </g>
+
+      <g transform="translate(622,20)">
+        <rect width="108" height="76" rx="14" fill="white" stroke="#e0dbd2" stroke-width="1.5"/>
+        <svg x="34" y="10" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6a6a6a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="7" width="20" height="14" rx="2"/>
+          <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+        </svg>
+        <text x="54" y="66" text-anchor="middle" font-size="11" fill="#6a6a6a" font-family="-apple-system,sans-serif">Work tools</text>
+      </g>
+
+      <line x1="84"  y1="96" x2="330" y2="156" stroke="#c8c2ba" stroke-width="1.2" stroke-dasharray="5,4"/>
+      <line x1="232" y1="96" x2="350" y2="156" stroke="#c8c2ba" stroke-width="1.2" stroke-dasharray="5,4"/>
+      <line x1="380" y1="96" x2="380" y2="156" stroke="#c8c2ba" stroke-width="1.2" stroke-dasharray="5,4"/>
+      <line x1="528" y1="96" x2="410" y2="156" stroke="#c8c2ba" stroke-width="1.2" stroke-dasharray="5,4"/>
+      <line x1="676" y1="96" x2="430" y2="156" stroke="#c8c2ba" stroke-width="1.2" stroke-dasharray="5,4"/>
+
+      <rect x="274" y="156" width="212" height="66" rx="18" fill="#1a1a1a"/>
+      <text x="380" y="184" text-anchor="middle" font-size="22" font-weight="700" fill="white" font-family="Georgia,serif">TARS</text>
+      <text x="380" y="206" text-anchor="middle" font-size="10.5" fill="#888" font-family="-apple-system,sans-serif" letter-spacing="0.1em">CONTEXT LAYER</text>
+
+      <line x1="320" y1="222" x2="222" y2="262" stroke="#c8c2ba" stroke-width="1.2" stroke-dasharray="5,4"/>
+      <line x1="440" y1="222" x2="538" y2="262" stroke="#c8c2ba" stroke-width="1.2" stroke-dasharray="5,4"/>
+
+      <g transform="translate(186,268)">
+        <circle r="36" fill="white" stroke="#ecdcd0" stroke-width="1.5"/>
+        <use href="#claude-mark" transform="translate(-16,-16) scale(1.33)"/>
+      </g>
+
+      <g transform="translate(574,268)">
+        <circle r="36" fill="white" stroke="#d8d5ce" stroke-width="1.5"/>
+        <use href="#openai-mark" transform="translate(-16,-16) scale(1.33)"/>
+      </g>
+
+    </svg>
+
+    <h2 class="reveal">TARS is a context indexer for the AI tools you already use.</h2>
+    <p class="reveal">Connect it once to your laptop. It indexes your files, email, calendar, and the tools you work in. On your way to a meeting, say "prep me for 3pm ACME with last year's numbers and the open items." It finds everything and has the brief ready before you sit down. You keep your tools. TARS makes them know your work.</p>
+
+  </div>
+</section>
+
+
+<!-- ══════════════ SLIDE 4: HOW IT WORKS (sticky, stacking) ══════════════ -->
+<section class="works-outer">
+  <div class="works-sticky">
+    <div class="works-inner">
+      <h2 class="works-title">Here is how it works.</h2>
+      <div class="cards-grid">
+
+        <div class="step-card">
+          <div class="step-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </div>
+          <div class="step-text">
+            <h3>It reads your work first.</h3>
+            <p>First time you open it, TARS goes through your files, emails, calendar. It builds a live index of your operation. You explain nothing. It just reads.</p>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+          </div>
+          <div class="step-text">
+            <h3>It keeps a map, not a copy.</h3>
+            <p>Your files stay where they are. TARS keeps a short index inside your own storage. A new hire who walked every filing cabinet on day one and always knows which drawer to open.</p>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+          </div>
+          <div class="step-text">
+            <h3>It spots patterns, not just keywords.</h3>
+            <p>It connects your proposal to the meeting notes to the email thread. Asks once when it cannot place something. Records the answer. Never asks again.</p>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+          </div>
+          <div class="step-text">
+            <h3>It drafts the way you do.</h3>
+            <p>It pulls the last two proposals you wrote and follows them. Your structure, your voice, your precedents. Not a template.</p>
+          </div>
+        </div>
+
+        <div class="step-card wide">
+          <div class="step-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+            </svg>
+          </div>
+          <div class="step-text">
+            <h3>It stays current without making a thing out of it.</h3>
+            <p>After each session, if anything changed, it updates its own notes and tells you in one line. No summary. No ceremony. Your tools just keep getting smarter.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- snap steps: one click of the scroll wheel = one card -->
+  <div class="snap-step"></div>
+  <div class="snap-step"></div>
+  <div class="snap-step"></div>
+  <div class="snap-step"></div>
+</section>
+
+
+<!-- ══════════════ FOOTER ══════════════ -->
+<footer class="footer-slide">
+  <div class="footer-brand">TARS</div>
+  <button class="install-chip" data-copy="npx tars-chief-of-staff">
+    <span class="chip-label">npx tars-chief-of-staff</span>
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+    </svg>
+    <span class="chip-copied">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      Copied
+    </span>
+  </button>
+  <div class="footer-links">
+    <a href="https://github.com/irachrist1/tars" target="_blank">View on GitHub</a>
+    <span style="color:var(--border)">·</span>
+    <span style="font-size:13px; color:var(--muted);">MIT License</span>
+  </div>
+</footer>
+
+
+<script>
+// ── HERO CANVAS ──
+const canvas = document.getElementById('hero-canvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// few dots, kept in the upper area so they never sit behind the text
+const dots = Array.from({ length: 18 }, () => ({
+  x: Math.random() * 2000,
+  y: Math.random() * 500,
+  vx: (Math.random() - 0.5) * 0.3,
+  vy: (Math.random() - 0.5) * 0.3,
+  r: Math.random() * 1.6 + 0.8
+}));
+
+function drawCanvas() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const yLimit = canvas.height * 0.45; // stay clear of the headline zone
+  for (let i = 0; i < dots.length; i++) {
+    for (let j = i + 1; j < dots.length; j++) {
+      const dx = dots[i].x - dots[j].x, dy = dots[i].y - dots[j].y;
+      const d = Math.sqrt(dx*dx + dy*dy);
+      if (d < 140) {
+        ctx.beginPath();
+        ctx.moveTo(dots[i].x, dots[i].y);
+        ctx.lineTo(dots[j].x, dots[j].y);
+        ctx.strokeStyle = `rgba(140,130,118,${0.22*(1-d/140)})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+  }
+  dots.forEach(d => {
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, d.r, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(140,130,118,0.5)';
+    ctx.fill();
+    d.x += d.vx; d.y += d.vy;
+    if (d.x < 0 || d.x > canvas.width) d.vx *= -1;
+    if (d.y < 0 || d.y > yLimit) d.vy *= -1;
+    if (d.y > yLimit) d.y = yLimit;
+  });
+  requestAnimationFrame(drawCanvas);
+}
+drawCanvas();
+
+// ── general reveal ──
+const revealIO = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => revealIO.observe(el));
+
+// ── sticky card reveal: stacks on the way down, resets when you leave ──
+const worksOuter = document.querySelector('.works-outer');
+const cards = Array.from(document.querySelectorAll('.step-card'));
+let maxRevealed = 0;
+
+function updateCards() {
+  const rect = worksOuter.getBoundingClientRect();
+
+  // left the section upward → reset so it stacks again next pass
+  if (rect.top > window.innerHeight * 0.5) {
+    maxRevealed = 0;
+    cards.forEach(c => c.classList.remove('revealed'));
+    return;
+  }
+
+  const scrollable = worksOuter.offsetHeight - window.innerHeight;
+  const progress = Math.max(0, Math.min(1, -rect.top / scrollable));
+
+  // 4 snap steps inside the section; each landing reveals exactly one more card
+  const target = Math.min(cards.length, Math.round(progress * 4) + 1);
+  if (target > maxRevealed) maxRevealed = target;
+
+  cards.forEach((card, i) => card.classList.toggle('revealed', i < maxRevealed));
+}
+
+window.addEventListener('scroll', updateCards, { passive: true });
+updateCards();
+
+// ── TARS 3D: drag to spin ──
+const scene = document.getElementById('tars-scene');
+const bot = document.getElementById('tars-bot');
+let rotY = -14, rotX = 4;
+let dragging = false, lastX = 0, lastY = 0;
+
+function applyRot() {
+  bot.style.transform = `rotateY(${rotY}deg) rotateX(${rotX}deg)`;
+}
+
+function startDrag(x, y) {
+  dragging = true;
+  lastX = x; lastY = y;
+  bot.classList.add('dragging');
+}
+
+function moveDrag(x, y) {
+  if (!dragging) return;
+  rotY += (x - lastX) * 0.45;
+  rotX -= (y - lastY) * 0.3;
+  rotX = Math.max(-40, Math.min(40, rotX));
+  lastX = x; lastY = y;
+  applyRot();
+}
+
+function endDrag() {
+  if (!dragging) return;
+  dragging = false;
+  bot.classList.remove('dragging');
+  // ease back toward the resting pose
+  rotY = -14; rotX = 4;
+  applyRot();
+}
+
+scene.addEventListener('mousedown', e => { e.preventDefault(); startDrag(e.clientX, e.clientY); });
+window.addEventListener('mousemove', e => moveDrag(e.clientX, e.clientY));
+window.addEventListener('mouseup', endDrag);
+scene.addEventListener('touchstart', e => startDrag(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+window.addEventListener('touchmove', e => { if (dragging) moveDrag(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+window.addEventListener('touchend', endDrag);
+
+// gentle tilt-follow on hover when not dragging
+scene.addEventListener('mousemove', e => {
+  if (dragging) return;
+  const r = scene.getBoundingClientRect();
+  const px = (e.clientX - r.left) / r.width - 0.5;
+  const py = (e.clientY - r.top) / r.height - 0.5;
+  bot.style.transform = `rotateY(${-14 + px * 26}deg) rotateX(${4 - py * 14}deg)`;
+});
+scene.addEventListener('mouseleave', () => { if (!dragging) { rotY = -14; rotX = 4; applyRot(); } });
+
+// ── INSTALL CHIPS: click to copy ──
+document.querySelectorAll('.install-chip').forEach(chip => {
+  chip.addEventListener('click', async () => {
+    const text = chip.dataset.copy;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    chip.classList.add('copied');
+    setTimeout(() => chip.classList.remove('copied'), 1600);
+  });
+});
+</script>
+
+</body>
+</html>
