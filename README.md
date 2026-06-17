@@ -1,8 +1,8 @@
 # TARS
 
-Make your AI actually know your work.
+Every AI tool you use, 10x more useful.
 
-Named after the robot from Interstellar. That TARS never asked for context. It knew the mission. This one works the same way.
+TARS was the robot in Interstellar that knew the mission and got things done without being told twice. Now it is a layer for your AI. It reads the files and tools you use every day, spots the patterns, and brings that context to Claude, ChatGPT, anything you use. It grows with you. Like Claude Cowork, without the setup.
 
 ---
 

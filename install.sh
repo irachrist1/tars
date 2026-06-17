@@ -11,6 +11,11 @@
 
 set -e
 
+printf '\n'
+printf '  T A R S\n'
+printf '  Make your AI actually know your work.\n'
+printf '  by Christian Tonny · github.com/irachrist1/tars\n\n'
+
 DEST="${DEST:-$HOME/.claude/skills/chief-of-staff}"
 BASE="https://raw.githubusercontent.com/irachrist1/tars/main/skills/chief-of-staff"
 
@@ -37,4 +42,6 @@ echo ""
 echo "  If your work lives in Microsoft 365, enable the Microsoft 365 connector"
 echo "  in your Claude client (Settings → Connectors) so it can read your files,"
 echo "  mail, and calendar."
+echo ""
+echo "  Built by Christian Tonny · github.com/irachrist1"
 echo ""

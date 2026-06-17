@@ -35,6 +35,17 @@ from yesterday — still right?") instead of re-asking the interview questions.
 Show both paths and dates, ask which is canonical, merge the loser's unique lines
 into it, and move the loser into `ARCHIVE.md` with a dated reason.
 
+## Phase −0.5 — Installer seed? Adopt it, skip the questions (silent)
+
+If `onboarding-seed.md` exists in this skill's own folder, the user already did
+the interview in the terminal installer. It holds their name, line of work, work
+folder, which AI they use, and what you must never do without asking. Treat every
+line as settled fact. Do **not** re-ask any of it. The only thing left to confirm
+is the work folder if the seed marked it unconfirmed. Then jump past Phase 1 and
+Phase 2 questions straight to reading their work (Phase 1's deep read) and the
+read-back. When you write `USER.md`, fold the seed's answers in, then delete the
+seed file so it never fires twice.
+
 ## Phase 0 — Figure out what you have to work with (silent, ~30s)
 
 Detect, don't ask:

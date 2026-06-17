@@ -10,6 +10,12 @@
 
 $ErrorActionPreference = "Stop"
 
+Write-Host ""
+Write-Host "  T A R S"
+Write-Host "  Make your AI actually know your work."
+Write-Host "  by Christian Tonny - github.com/irachrist1/tars"
+Write-Host ""
+
 $dest = if ($env:DEST) { $env:DEST } else { Join-Path $HOME ".claude\skills\chief-of-staff" }
 $base = "https://raw.githubusercontent.com/irachrist1/tars/main/skills/chief-of-staff"
 
@@ -42,4 +48,6 @@ Write-Host ""
 Write-Host "  If your work lives in Microsoft 365, enable the Microsoft 365 connector"
 Write-Host "  in your Claude client (Settings > Connectors) so it can read your files,"
 Write-Host "  mail, and calendar."
+Write-Host ""
+Write-Host "  Built by Christian Tonny - github.com/irachrist1"
 Write-Host ""

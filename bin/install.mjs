@@ -11,7 +11,8 @@
 //
 // No dependencies, no network, no telemetry. Copies one folder; optionally launches Claude.
 
-import { cp, mkdir, rm, stat, readFile } from 'node:fs/promises';
+import { cp, mkdir, rm, stat, readFile, writeFile } from 'node:fs/promises';
+import { readdirSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
@@ -31,6 +32,58 @@ const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY) && !has
 
 const ok = (m) => console.log(`  ${m}`);
 const die = (m) => { console.error(`  error: ${m}`); process.exit(1); };
+
+// ---- branding --------------------------------------------------------------
+function banner() {
+  console.log('');
+  console.log('  ████████╗ █████╗ ██████╗ ███████╗');
+  console.log('  ╚══██╔══╝██╔══██╗██╔══██╗██╔════╝');
+  console.log('     ██║   ███████║██████╔╝███████╗');
+  console.log('     ██║   ██╔══██║██╔══██╗╚════██║');
+  console.log('     ██║   ██║  ██║██║  ██║███████║');
+  console.log('     ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝');
+  console.log('  Every AI tool you use, 10x more useful.');
+  console.log('  by Christian Tonny · github.com/irachrist1/tars');
+  console.log('');
+}
+banner();
+
+// ---- option-based prompt: returns the chosen option object ------------------
+async function choose(question, options) {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    console.log(`  ${question}`);
+    options.forEach((o, i) => console.log(`    ${i + 1}) ${o.label}`));
+    const def = options.findIndex(o => o.recommended);
+    const defN = def >= 0 ? def + 1 : 1;
+    const raw = (await rl.question(`  ↳ pick a number  [${defN}]  `)).trim();
+    const n = parseInt(raw, 10);
+    const idx = (!raw || isNaN(n) || n < 1 || n > options.length) ? defN - 1 : n - 1;
+    console.log('');
+    return options[idx];
+  } finally { rl.close(); }
+}
+
+// ---- auto-detect the work folder (OneDrive) --------------------------------
+function detectWorkFolder() {
+  const home = homedir();
+  const candidates = [];
+  if (process.platform === 'darwin') {
+    const cs = join(home, 'Library', 'CloudStorage');
+    try {
+      for (const d of readdirSync(cs)) {
+        if (/^OneDrive/i.test(d)) candidates.push(join(cs, d));
+      }
+    } catch {}
+  }
+  for (const name of ['OneDrive', 'OneDrive - Personal']) {
+    const p = join(home, name);
+    try { if (statSync(p).isDirectory()) candidates.push(p); } catch {}
+  }
+  // prefer an org variant ("OneDrive - <Company>") — that's the work one
+  const org = candidates.find(p => /OneDrive\s*-\s*\S/i.test(p));
+  return org || candidates[0] || null;
+}
 
 async function ask(question, def) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -68,10 +121,7 @@ try {
 let dest;
 if (val('--dest')) dest = resolve(val('--dest'));
 else if (has('--project')) dest = resolve('.claude', 'skills', SKILL_NAME);
-else if (interactive) {
-  const choice = await ask('Install for (1) just me, or (2) this folder only?  [1]', '1');
-  dest = choice.startsWith('2') ? resolve('.claude', 'skills', SKILL_NAME) : userDest;
-} else dest = userDest;
+else dest = userDest; // default to user scope; the interview can refine nothing here
 
 // ---- don't clobber an edited copy silently ---------------------------------
 let exists = false;
@@ -91,8 +141,85 @@ if (exists) await rm(dest, { recursive: true });
 await cp(SRC, dest, { recursive: true });
 
 console.log('');
-ok(`✓ chief-of-staff installed → ${dest}`);
+ok(`✓ installed → ${dest}`);
 console.log('');
+
+// ---- the interview: get most of the setup done before Claude opens ---------
+// Short, mostly taps, no typing except your name. Writes a seed the skill reads
+// on first run so it skips the questions and goes straight to proving itself.
+if (interactive) {
+  ok('Four taps and TARS knows who it works for. Let\'s go.');
+  console.log('');
+
+  const name = (await ask('What should I call you?', '')) || 'there';
+  console.log('');
+
+  const work = await choose('What\'s your work?', [
+    { label: 'Consulting or advisory', key: 'consulting' },
+    { label: 'Accounting or audit', key: 'accounting' },
+    { label: 'Legal', key: 'legal' },
+    { label: 'Founder or executive', key: 'founder' },
+    { label: 'Something else', key: 'other' },
+  ]);
+
+  const found = detectWorkFolder();
+  let workFolder;
+  if (found) {
+    const c = await choose(`I found your work folder at:\n     ${found}`, [
+      { label: 'Yes, that\'s the one', key: 'yes', recommended: true },
+      { label: 'It\'s somewhere else (I\'ll point you later)', key: 'later' },
+    ]);
+    workFolder = c.key === 'yes' ? found : '(to be confirmed on first run)';
+  } else {
+    workFolder = '(to be detected on first run)';
+  }
+
+  const tools = await choose('Which AI do you live in?', [
+    { label: 'Claude', key: 'claude' },
+    { label: 'ChatGPT', key: 'chatgpt' },
+    { label: 'Both', key: 'both', recommended: true },
+  ]);
+
+  const guard = await choose('What should TARS never do without asking you first?', [
+    { label: 'Send email', key: 'email' },
+    { label: 'Delete or overwrite my files', key: 'files' },
+    { label: 'Post anywhere on my behalf', key: 'post' },
+    { label: 'All of the above', key: 'all', recommended: true },
+  ]);
+
+  const guardText = {
+    email: 'send email',
+    files: 'delete or overwrite files',
+    post: 'post anywhere on my behalf',
+    all: 'send email, delete or overwrite files, or post anywhere on my behalf',
+  }[guard.key];
+
+  // write the seed the skill reads on first run
+  const seed = `# Onboarding seed
+Captured by the installer on ${new Date().toISOString().slice(0, 10)}. This is the
+user's own setup. On first run, adopt these answers, do NOT re-ask them. Confirm
+the work folder, then go straight to reading their work and proving yourself.
+
+- name: ${name}
+- work: ${work.label} (${work.key})
+- work_folder: ${workFolder}
+- primary_ai: ${tools.label}
+- never_without_asking: ${guardText}
+`;
+  try {
+    await writeFile(join(dest, 'onboarding-seed.md'), seed, 'utf8');
+  } catch {}
+
+  console.log('');
+  ok(`Perfect, ${name}. Here's what I've got:`);
+  ok(`  · ${work.label}`);
+  ok(`  · Work folder: ${workFolder}`);
+  ok(`  · You live in ${tools.label}`);
+  ok(`  · I'll never ${guardText} without asking`);
+  console.log('');
+  ok('First thing I\'ll do is read your work and come back with what I see.');
+  console.log('');
+}
 
 // ---- if we got here the Node path succeeded; log it for the agent ----------
 // (The curl/PowerShell paths in install.sh / Install-Tars.ps1 are the fallback
@@ -130,4 +257,6 @@ if (!interactive) {
 console.log('');
 ok('If your work lives in Microsoft 365, enable the Microsoft 365 connector in your');
 ok('Claude client (Settings → Connectors) so it can read your files, mail, and calendar.');
+console.log('');
+ok('Built by Christian Tonny · github.com/irachrist1');
 console.log('');
