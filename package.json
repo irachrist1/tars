@@ -1,7 +1,7 @@
 {
   "name": "tars-chief-of-staff",
-  "version": "0.1.5",
-  "description": "Chief of Staff on Claude — a skill that turns Claude into a chief of staff for a professional whose work lives in Microsoft 365 / OneDrive. Map + connector search + precedents + quiet self-maintenance.",
+  "version": "1.0.0",
+  "description": "Give your AI the context it needs to deliver. TARS is a Claude skill that indexes the docs, email, and meeting notes your AI can't reach, then hands the right context to it on command. Built for the solo professional. Map + on-device (Spotlight/Golden Gate) and connector search + precedents + quiet self-maintenance.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -12,6 +12,9 @@
     "claude-skill",
     "chief-of-staff",
     "ai-assistant",
+    "ai-context",
+    "context-layer",
+    "tars",
     "microsoft-365",
     "onedrive"
   ],

@@ -64,7 +64,7 @@ then proceed identically from the user's point of view:
 |---|---|---|
 | **Full** (connector + local) | both | `node scripts/scan.mjs` (in this skill's folder) for the skeleton, connector for content |
 | **Connector-only** (claude.ai, mobile) | connector search + folder listing | walk top 2–3 folder levels, recent-activity searches |
-| **Local-only** (no connector yet) | filesystem | scan + sampling; note that mail/calendar/meetings are dark until the connector is added — don't nag about it again |
+| **Local-only** (no connector yet) | filesystem + `mdfind` (Spotlight) | scan + sampling; use `mdfind` for content search (semantic on macOS Golden Gate); note that mail/calendar/meetings are dark until the connector is added — don't nag about it again |
 
 ## Phase 1 — One question, then go look (~5 min)
 
@@ -117,8 +117,8 @@ Then the four remaining interview questions, conversationally, not as a form:
    answer sets the briefs' open-items priority — needs cannot be inferred from
    files, so this one is asked, not detected.
 4. **"What should I never do without asking you first?"** Boundaries, on top of
-   the default rule (nothing leaves the machine, nothing irreversible, without a
-   yes).
+   the default rule (nothing sent, posted, or deleted, and nothing irreversible,
+   without a yes).
 
 ## Phase 3 — Consent, create, prove (~5 min)
 
@@ -129,9 +129,11 @@ Then the four remaining interview questions, conversationally, not as a form:
 2. **On the yes**, create: `MAP.md`, `USER.md` (their answers + boundaries),
    `Clients/<name>.md` for each active client, empty `LOG.md` and `ARCHIVE.md`
    (shapes in `workspace-shapes.md`). Date everything.
-3. **Prove it immediately, once.** Pick whichever lands harder from what you saw:
-   - answer a real question from their files, with the citation, or
-   - prep their next calendar meeting (who, history, open items, what to ask).
+3. **Prove it immediately, once.** Default to prepping their next calendar meeting
+   when a calendar is reachable — it's the signature demo the product promises
+   ("prep me for the 3pm call": who, history, open items, what to ask). Fall back
+   to answering a real question from their files, with the citation, when there's
+   no calendar in reach. Either way, cite the real source.
 4. **Close light.** One line on what exists now and how to use it: "That's me set
    up. Ask me anything about your work, or ask for a brief any morning. I'll keep
    my notes current and mention it when I change them." Log the session in

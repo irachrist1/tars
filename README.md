@@ -1,8 +1,10 @@
 # TARS
 
-Every AI tool you use, 10x more useful.
+Give your AI the context it needs to deliver.
 
-TARS was the robot in Interstellar that knew the mission and got things done without being told twice. Now it is a layer for your AI. It reads the files and tools you use every day, spots the patterns, and brings that context to Claude, ChatGPT, anything you use. It grows with you. Like Claude Cowork, without the setup.
+Years of docs, email, and meeting notes your AI can't touch. TARS indexes all of it and hands the right context to your AI on command. Say *"prep me for the 3pm call with last year's numbers"* and it's ready before you sit down. TARS never copies or moves your files.
+
+Named after the robot in Interstellar that knew the mission and got things done without being told twice. TARS is a layer over your laptop, not a new app. It grows with you. Like Claude Cowork, without the setup.
 
 ---
 

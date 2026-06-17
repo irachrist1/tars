@@ -42,7 +42,7 @@ function banner() {
   console.log('     ██║   ██╔══██║██╔══██╗╚════██║');
   console.log('     ██║   ██║  ██║██║  ██║███████║');
   console.log('     ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝');
-  console.log('  Every AI tool you use, 10x more useful.');
+  console.log('  Give your AI the context it needs to deliver.');
   console.log('  by Christian Tonny · github.com/irachrist1/tars');
   console.log('');
 }
@@ -93,11 +93,24 @@ async function ask(question, def) {
   } finally { rl.close(); }
 }
 
-function claudeAvailable() {
+function claudeAvailable() { return cliAvailable('claude'); }
+
+// Is a CLI on PATH and runnable?
+function cliAvailable(cmd) {
   try {
-    const r = spawnSync('claude', ['--version'], { stdio: 'ignore' });
+    const r = spawnSync(cmd, ['--version'], { stdio: 'ignore' });
     return !r.error && r.status === 0;
   } catch { return false; }
+}
+
+// Is a GUI app installed? macOS only — returns null elsewhere so we never give
+// install advice on a platform we can't actually check.
+function macAppInstalled(name) {
+  if (process.platform !== 'darwin') return null;
+  for (const base of ['/Applications', join(homedir(), 'Applications')]) {
+    try { if (statSync(join(base, `${name}.app`)).isDirectory()) return true; } catch {}
+  }
+  return false;
 }
 
 // ---- uninstall -------------------------------------------------------------
@@ -148,7 +161,7 @@ console.log('');
 // Short, mostly taps, no typing except your name. Writes a seed the skill reads
 // on first run so it skips the questions and goes straight to proving itself.
 if (interactive) {
-  ok('Four taps and TARS knows who it works for. Let\'s go.');
+  ok('Five taps and TARS knows who it works for. Let\'s go.');
   console.log('');
 
   const name = (await ask('What should I call you?', '')) || 'there';
@@ -174,10 +187,21 @@ if (interactive) {
     workFolder = '(to be detected on first run)';
   }
 
-  const tools = await choose('Which AI do you live in?', [
-    { label: 'Claude', key: 'claude' },
-    { label: 'ChatGPT', key: 'chatgpt' },
-    { label: 'Both', key: 'both', recommended: true },
+  // Meetings/notes are the spine of "prep me for the 3pm call" — capture where
+  // they live so the skill knows which connector to lean on on first run.
+  const meetings = await choose('Where do your meetings and notes live?  (this is what makes "prep me for the 3pm call" work)', [
+    { label: 'Outlook / Microsoft 365', key: 'm365', recommended: true },
+    { label: 'Google Calendar', key: 'google' },
+    { label: 'Granola or another notes app', key: 'granola' },
+    { label: 'Mostly in my head — nothing set up yet', key: 'none' },
+  ]);
+
+  // TARS runs inside Claude today. Be honest about that rather than implying
+  // a ChatGPT path that doesn't exist yet.
+  const tools = await choose('TARS runs inside Claude today (ChatGPT is coming). Do you also use ChatGPT?', [
+    { label: 'Just Claude', key: 'claude', recommended: true },
+    { label: 'Claude and ChatGPT', key: 'both' },
+    { label: 'Mostly ChatGPT — I\'ll try it in Claude', key: 'chatgpt' },
   ]);
 
   const guard = await choose('What should TARS never do without asking you first?', [
@@ -194,15 +218,24 @@ if (interactive) {
     all: 'send email, delete or overwrite files, or post anywhere on my behalf',
   }[guard.key];
 
+  const meetingsConnector = {
+    m365: 'Microsoft 365 (Outlook mail + calendar)',
+    google: 'Google Calendar',
+    granola: 'Granola (or their notes app)',
+    none: 'none yet — nudge them to connect a calendar so meeting prep works',
+  }[meetings.key];
+
   // write the seed the skill reads on first run
   const seed = `# Onboarding seed
 Captured by the installer on ${new Date().toISOString().slice(0, 10)}. This is the
 user's own setup. On first run, adopt these answers, do NOT re-ask them. Confirm
-the work folder, then go straight to reading their work and proving yourself.
+the work folder, make sure the connector for their meetings is enabled, then
+prove yourself on a real meeting prep ("prep me for the 3pm call") with a citation.
 
 - name: ${name}
 - work: ${work.label} (${work.key})
 - work_folder: ${workFolder}
+- meetings_and_notes: ${meetingsConnector}
 - primary_ai: ${tools.label}
 - never_without_asking: ${guardText}
 `;
@@ -214,10 +247,41 @@ the work folder, then go straight to reading their work and proving yourself.
   ok(`Perfect, ${name}. Here's what I've got:`);
   ok(`  · ${work.label}`);
   ok(`  · Work folder: ${workFolder}`);
-  ok(`  · You live in ${tools.label}`);
+  ok(`  · Meetings & notes: ${meetings.label}`);
+  ok(`  · Running in Claude${tools.key === 'claude' ? '' : ' (ChatGPT support is coming)'}`);
   ok(`  · I'll never ${guardText} without asking`);
   console.log('');
-  ok('First thing I\'ll do is read your work and come back with what I see.');
+
+  // The connector is what unlocks meeting prep — make it step one, not a footnote.
+  const connectorHint = {
+    m365: 'Enable the Microsoft 365 connector in Claude (Settings → Connectors) so I can read your mail, calendar, and files.',
+    google: 'Enable the Google Calendar connector in Claude (Settings → Connectors) so I can see your meetings.',
+    granola: 'Enable the Granola connector in Claude (Settings → Connectors) so I can read your meeting notes.',
+    none: 'When you\'re ready, connect a calendar in Claude (Settings → Connectors) and meeting prep switches on.',
+  }[meetings.key];
+  ok('One thing turns everything on:');
+  ok(`  ${connectorHint}`);
+  console.log('');
+
+  // Suggest (never push) the apps that make TARS materially better. Only on
+  // macOS, where we can actually check; one plain line on WHY each helps.
+  const suggestions = [];
+  if (macAppInstalled('Obsidian') === false) {
+    suggestions.push('Obsidian (free) — a home for your notes in plain files you own. TARS can read and write it, so your context never gets locked in one app.  obsidian.md');
+  }
+  if (macAppInstalled('Granola') === false) {
+    suggestions.push('Granola — it writes your meeting notes for you. Then "prep me for the 3pm call" has the real transcript to work from, not your memory.  granola.ai');
+  }
+  if (!claudeAvailable() && macAppInstalled('Claude') === false) {
+    suggestions.push('Claude (Desktop or Code) — TARS lives inside it. This is the one worth installing first.  claude.ai/download');
+  }
+  if (suggestions.length) {
+    ok('A few apps would make TARS noticeably sharper (all optional, all your call):');
+    for (const s of suggestions) ok(`  · ${s}`);
+    console.log('');
+  }
+
+  ok('Then I\'ll read your work and prep you for a real meeting.');
   console.log('');
 }
 
@@ -226,14 +290,20 @@ the work folder, then go straight to reading their work and proving yourself.
 // for machines without Node. Agents that can't run npx should use those instead.)
 
 // ---- now actually start it -------------------------------------------------
+// Prefer Claude Code, fall back to Codex — either way we hand off into a coding
+// agent that reads the seed and continues with all the context just captured.
 const claude = claudeAvailable();
+const codex = cliAvailable('codex');
+const runner = claude ? { cmd: 'claude', name: 'Claude Code' }
+             : codex  ? { cmd: 'codex',  name: 'Codex' }
+             : null;
 
-if (interactive && claude && !has('--no-launch')) {
-  const a = await ask('Open Claude now and set up your chief of staff?  [Y/n]', 'y');
+if (interactive && runner && !has('--no-launch')) {
+  const a = await ask(`Continue in ${runner.name} now and set up your chief of staff?  [Y/n]`, 'y');
   if (!a.toLowerCase().startsWith('n')) {
-    ok('Opening Claude…');
+    ok(`Opening ${runner.name}…  it picks up everything you just told me.`);
     console.log('');
-    const r = spawnSync('claude', ['set up my chief of staff'], { stdio: 'inherit' });
+    const r = spawnSync(runner.cmd, ['set up my chief of staff'], { stdio: 'inherit' });
     process.exit(r.status ?? 0);
   }
 }
@@ -246,11 +316,11 @@ if (!interactive) {
   ok('then follow it now — it checks for an existing setup and either adopts it');
   ok('or runs onboarding (first question: where their work is kept).');
   ok('The skill loads automatically in future sessions.');
-} else if (claude) {
-  ok('Start it any time with:');
-  ok('  claude "set up my chief of staff"');
+} else if (runner) {
+  ok('Pick it back up any time with:');
+  ok(`  ${runner.cmd} "set up my chief of staff"`);
 } else {
-  ok('Open Claude (app, claude.ai, or mobile) and say:');
+  ok('Open Claude (Desktop, Code, claude.ai, or mobile) and say:');
   ok('  set up my chief of staff');
 }
 
