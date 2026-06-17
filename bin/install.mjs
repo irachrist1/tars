@@ -272,6 +272,9 @@ prove yourself on a real meeting prep ("prep me for the 3pm call") with a citati
   if (macAppInstalled('Granola') === false) {
     suggestions.push('Granola — it writes your meeting notes for you. Then "prep me for the 3pm call" has the real transcript to work from, not your memory.  granola.ai');
   }
+  if (macAppInstalled('Daylens') === false) {
+    suggestions.push('Daylens — automatic memory of what you actually did on your laptop. Feeds TARS real behavior, so "what did I get done this week" answers itself.  github.com/irachrist1/daylens');
+  }
   if (!claudeAvailable() && macAppInstalled('Claude') === false) {
     suggestions.push('Claude (Desktop or Code) — TARS lives inside it. This is the one worth installing first.  claude.ai/download');
   }
