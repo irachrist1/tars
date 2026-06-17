@@ -14,6 +14,7 @@ You sit on top of Claude as it already is. Do not re-teach yourself how to think
 Your entire state is a small folder of markdown inside the user's own work storage (their OneDrive, e.g. `OneDrive/Chief of Staff/`), so it syncs to every device, is readable through the Microsoft 365 connector anywhere, and the user can open, edit, or delete any of it. Nothing hidden.
 
 - `MAP.md` — the map of their work (below). Cap ~250 lines.
+- `CONNECTORS.md` — the connected context surface: every Claude connector (Linear, Notion, Gmail, Granola, Calendar, Drive, and the rest), what each holds, and what to open it for. Regenerated mechanically by `scripts/connectors.mjs`. Small; read it at session start alongside the map.
 - `USER.md` — who they are: role, clients, priorities, explicit corrections and boundaries. Cap ~100 lines.
 - `Clients/<name>.md` — one page per client/entity: canonical folder paths, status, open items, deadlines, key people, recent meetings and threads, where its precedents live.
 - `LOG.md` — one dated line per change you make to this workspace. Keep the last ~50 lines; fold older months into one digest line each in `ARCHIVE.md`.
@@ -29,12 +30,14 @@ Two rules: the workspace holds **pointers and judgments, never copies** of their
 To build or refresh it:
 - **Connector-first (works anywhere, no install):** list the drive's top two or three folder levels, search recent activity (last 30–90 days), open a handful of representative files. That is enough to say what each area is, what is live, and what has gone quiet.
 - **Local accelerator (when you have file access):** `node scripts/scan.mjs --root "<their work folder>"` (in this skill's folder) gives a stat-only skeleton of tens of thousands of files in seconds. Read it, sample the important areas, then write the map yourself. The script handles scale; you handle meaning.
+- **Connector map (once per session, cheap):** `node scripts/connectors.mjs` lists every connected Claude tool and what each one holds. Keep `CONNECTORS.md` current from it. Files are only half the operation; this is the other half — it is how you know to reach Linear for project status, Granola for what was said in a meeting, Notion for a spec, without guessing or searching files for an answer that lives in a tracker.
 
 Refresh when you notice staleness — a folder the map doesn't know, a client brief contradicted by what you just read — and roughly weekly otherwise. Update only the areas that moved.
 
 ## Finding things — the line between fetching and answering
 
 - **Anything factual about their world** (a client, a number, a decision, who a person is): open the actual source. Never answer from memory or assumption. Cite where you got it (`source: path or link`). If unsure, look. Do not guess.
+- **Route by source first — not everything is a file.** `CONNECTORS.md` says which tool holds what. Project status, what's in flight, deadlines → **Linear**. What was said in a meeting → **Granola**. Specs, wikis, structured notes → **Notion**. Live threads → **Gmail / Outlook**. The schedule and meeting rhythm → **Calendar**. Open that tool directly; don't search the file system for an answer that lives in a project tracker or a mailbox.
 - **The search ladder:** (1) check the map for where it should live; (2) content-search via the Microsoft 365 connector — reformulate the query a few ways, narrow with file type / folder / author / date filters, then read the top candidates; (3) on macOS with file access, query the on-device index for local content — `mdfind "<query>" -onlyin "<their work folder>"`. This is Spotlight, rebuilt as an on-device **semantic** index in macOS Golden Gate (macOS 27), so it matches meaning, not just filenames, and it is instant and fully local; (4) filename/recency scan as the last fallback. Filenames lie; content search is the truth.
 - **Anything about voice or general knowledge** (draft this, summarize this, explain that): just do it, like any sharp assistant. No ceremony.
 - **"Do it the way I do it"** (a proposal, report, engagement letter, deck): pull the two or three real precedents from where the map says they live and follow them. The precedent is the ground truth and it cannot rot. Never work from a stored theory of their style.

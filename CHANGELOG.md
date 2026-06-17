@@ -3,6 +3,24 @@
 All notable changes to TARS are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [1.1.0] — 2026-06-17
+
+TARS stops being a file mapper and becomes a map of your whole connected operation.
+
+### Connector detection
+- New `scripts/connectors.mjs` runs `claude mcp list`, classifies every Claude
+  connector against a registry of **what it holds and what to open it for**, and
+  emits a `CONNECTORS.md` map grouped by tier (work / design / life / needs-auth).
+  Detects Linear, Notion, Gmail, Granola, Google Calendar/Drive, Slack, Figma,
+  Canva, Gamma, and more. Degrades gracefully when the `claude` CLI isn't present.
+- **Route by source first:** the search ladder now sends each kind of question to
+  the tool that holds the answer — project status → Linear, meeting notes →
+  Granola, specs → Notion, threads → Gmail/Outlook — instead of searching files
+  for an answer that lives in a tracker.
+- **Onboarding is connector-aware:** Phase 0 detects the full connector surface,
+  the first-run deep read samples it (active Linear projects, recent Granola
+  meetings, top Notion pages), and the read-back names them specifically.
+
 ## [1.0.0] — 2026-06-17
 
 First stable release. This is the version where the promise and the product line up:

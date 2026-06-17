@@ -56,6 +56,11 @@ Detect, don't ask:
 3. **Where is the work?** Auto-detect the OneDrive folder before asking:
    - macOS: `~/Library/CloudStorage/OneDrive-*` (also `~/OneDrive*`)
    - Windows: `%USERPROFILE%\OneDrive*` (the `-<OrgName>` variant is the work one)
+4. **What else is connected?** Run `node scripts/connectors.mjs` (in Desktop, read
+   the `mcp__*` tools you can see) to map the full connector surface — Linear,
+   Notion, Gmail, Granola, Calendar, Drive, and the rest. Connectors are half the
+   operation; files are the other half. Save the result to `CONNECTORS.md` when you
+   create the workspace.
 
 This yields one of three modes. Say which one you're in, in one plain sentence,
 then proceed identically from the user's point of view:
@@ -87,6 +92,10 @@ I'll only read — I won't move, change, or send anything."* Then deep-read:
    the archive.
 4. **If connector: triangulate.** Recent calendar (recurring meetings = the
    rhythm), recent mail subjects (live matters), recent meeting transcripts if any.
+   Then sample the other work-tier connectors from `CONNECTORS.md`: list active
+   **Linear** projects and in-flight issues (what they're working on right now),
+   recent **Granola** meetings, top **Notion** pages — enough to name them
+   specifically in the read-back, not just say "you have Linear connected."
 5. **Collect, don't resolve, ambiguities.** Folders you can't place, names that
    could be clients or vendors, two folders that might be the same engagement.
    These become Phase 2 questions — after you've tried to settle each one with a
@@ -106,6 +115,10 @@ Come back specific. This is the moment the product is sold or lost:
 > imitate? Two things I spotted: the Q2 fee reconciliation thread has been waiting
 > on their controller since the 3rd, and something called `RWA-Restructure` I
 > can't place — ACME or Globex?"
+
+Surface the connected tools too, in one line: *"And I can see your Linear, Granola,
+and Notion — so I can pull project status and what was actually said in meetings, not
+just files."* It shows the reach is wider than the work folder, and it is true on day one.
 
 Then the four remaining interview questions, conversationally, not as a form:
 
