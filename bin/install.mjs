@@ -12,6 +12,13 @@
 //   npx tars-chief-of-staff --use         # paste-ready prompt for Cowork/claude.ai (skills.sh style)
 //   npx tars-chief-of-staff --use --agent claude-code   # launch Claude Code with the skill loaded
 //
+// Short command (npm i -g tars-chief-of-staff → `tars` on PATH, works from any directory):
+//   tars                  # install if needed, then open Claude with the right prompt
+//   tars open             # same
+//   tars install          # full interview + install (same as npx tars-chief-of-staff)
+//   tars use              # paste-ready prompt for Cowork / claude.ai
+//   tars help
+//
 // Re-running is safe: if the installed version matches it says so; if it's older
 // it updates in place and keeps your onboarding-seed.md.
 //
@@ -29,9 +36,22 @@ const argv = process.argv.slice(2);
 const has = (f) => argv.includes(f);
 const val = (f) => (argv.includes(f) ? argv[argv.indexOf(f) + 1] : null);
 
+const invokedAs = process.argv[1]?.split(/[/\\]/).pop() ?? '';
+const isTarsCmd = invokedAs === 'tars';
+
+let subcommand = null;
+if (argv[0] && !argv[0].startsWith('-')) {
+  const subs = new Set(['open', 'start', 'install', 'use', 'help']);
+  if (subs.has(argv[0])) subcommand = argv.shift();
+}
+
 const SKILL_NAME = 'chief-of-staff';
 const SRC = join(dirname(fileURLToPath(import.meta.url)), '..', 'skills', SKILL_NAME);
 const userDest = join(homedir(), '.claude', 'skills', SKILL_NAME);
+
+let dest = userDest;
+if (val('--dest')) dest = resolve(val('--dest'));
+else if (has('--project')) dest = resolve('.claude', 'skills', SKILL_NAME);
 
 // A real person at a terminal vs. an agent/CI running us through a pipe.
 const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY) && !has('--yes');
@@ -128,11 +148,129 @@ User request: ${userRequest}`;
   await emitUsePrompt(userRequest);
 }
 
-// ---- branding --------------------------------------------------------------
-if (has('--use')) {
+function printHelp() {
+  console.log(`
+TARS — give your AI the context it needs to deliver.
+
+Usage:
+  tars                    Open in Claude from any directory (installs if needed)
+  tars open               Same as tars
+  tars install            Full setup interview + install
+  tars use                Full skill wrap for Cowork / claude.ai (paste)
+  tars use --continue     Handoff prompt after setup
+
+  npx tars-chief-of-staff           Full install (same as tars install)
+  npx tars-chief-of-staff --use     Paste-ready prompt
+  npx tars-chief-of-staff --update  Refresh installed skill
+
+Install globally for the short command:
+  npm install -g tars-chief-of-staff
+  tars                  # works anywhere
+
+Options (install / open):
+  --project             Install into ./.claude/skills (this repo only)
+  --dest <dir>          Custom install path
+  --yes                 Skip interview questions
+  --no-launch           Install only, do not open Claude
+  --agent claude-code   Launch agent with --use output
+`);
+}
+
+async function skillInstalledAt(dir) {
+  try { await stat(join(dir, 'SKILL.md')); return true; } catch { return false; }
+}
+
+async function workspaceMapExists() {
+  const base = detectWorkFolder();
+  if (!base) return false;
+  try { await stat(join(base, 'Chief of Staff', 'MAP.md')); return true; } catch {}
+  return false;
+}
+
+async function openPromptFor(dest) {
+  try { await stat(join(dest, 'onboarding-seed.md')); return PROMPT_SETUP; } catch {}
+  if (await workspaceMapExists()) return PROMPT_CONTINUE;
+  return PROMPT_SETUP;
+}
+
+async function ensureSkillInstalled(dest) {
+  if (await skillInstalledAt(dest)) return false;
+  await mkdir(dirname(dest), { recursive: true });
+  await cp(SRC, dest, { recursive: true });
+  const v = (await readFile(join(SRC, 'VERSION'), 'utf8').catch(() => '')).trim();
+  if (v) await writeFile(join(dest, 'VERSION'), v + '\n', 'utf8');
+  return true;
+}
+
+async function launchAgent(prompt) {
+  const claude = cliAvailable('claude');
+  const codex = cliAvailable('codex');
+  const runner = claude ? { cmd: 'claude', name: 'Claude Code' }
+               : codex  ? { cmd: 'codex',  name: 'Codex' }
+               : null;
+  if (runner) {
+    ok(`Opening ${runner.name}…`);
+    console.log('');
+    const r = spawnSync(runner.cmd, [prompt], { stdio: 'inherit' });
+    process.exit(r.status ?? 0);
+  }
+  if (openClaudeDesktop()) {
+    ok('Opened Claude Desktop — paste this when it\'s ready:');
+    printCopyablePrompt(prompt);
+    if (tryCopyToClipboard(prompt)) ok('(Copied to clipboard.)');
+    process.exit(0);
+  }
+  printCopyablePrompt(prompt);
+  ok('Install Claude Code for one-command launch, or:  tars use');
+  if (tryCopyToClipboard(prompt)) ok('(Copied to clipboard.)');
+  process.exit(0);
+}
+
+async function runOpenMode(dest = userDest) {
+  const fresh = await ensureSkillInstalled(dest);
+  if (fresh) {
+    ok('✓ chief-of-staff installed');
+    ok('  Tip: run `tars install` once for a personalized setup.');
+    console.log('');
+  }
+  const prompt = await openPromptFor(dest);
+  if (has('--no-launch')) {
+    await offerHandoff(prompt);
+    return;
+  }
+  if (interactive && !has('--yes')) {
+    await offerHandoff(prompt);
+    return;
+  }
+  await launchAgent(prompt);
+}
+
+// ---- routing ---------------------------------------------------------------
+if (has('--use') || subcommand === 'use') {
   await runUseMode();
   process.exit(0);
 }
+
+if (subcommand === 'help' || has('--help') || has('-h')) {
+  printHelp();
+  process.exit(0);
+}
+
+if (has('--uninstall')) {
+  const target = val('--dest') ? resolve(val('--dest')) : userDest;
+  try { await stat(target); } catch { die(`nothing installed at ${target}`); }
+  await rm(target, { recursive: true });
+  ok(`removed ${target}`);
+  process.exit(0);
+}
+
+const wantsOpen = isTarsCmd && (!subcommand || subcommand === 'open' || subcommand === 'start');
+if (wantsOpen) {
+  await runOpenMode(dest);
+  process.exit(0);
+}
+
+// `tars install` and `npx tars-chief-of-staff` fall through to full setup below.
 
 function banner() {
   console.log('');
@@ -294,19 +432,10 @@ async function offerHandoff(prompt) {
 
   if (handoff.key === 'copy') {
     printCopyablePrompt(prompt);
-    ok('For Cowork without the skill uploaded yet, run:  npx tars-chief-of-staff --use');
+    ok('For Cowork without the skill uploaded yet, run:  tars use');
     if (tryCopyToClipboard(prompt)) ok('Copied the short prompt to your clipboard.');
     return;
   }
-}
-
-// ---- uninstall -------------------------------------------------------------
-if (has('--uninstall')) {
-  const target = val('--dest') ? resolve(val('--dest')) : userDest;
-  try { await stat(target); } catch { die(`nothing installed at ${target}`); }
-  await rm(target, { recursive: true });
-  ok(`removed ${target}`);
-  process.exit(0);
 }
 
 // ---- sanity: we are shipping a real skill ----------------------------------
@@ -317,12 +446,7 @@ try {
   die(`cannot read ${join(SRC, 'SKILL.md')} — run from the tars package`);
 }
 
-// ---- where does it go ------------------------------------------------------
-let dest;
-if (val('--dest')) dest = resolve(val('--dest'));
-else if (has('--project')) dest = resolve('.claude', 'skills', SKILL_NAME);
-else dest = userDest; // default to user scope; the interview can refine nothing here
-
+// ---- where does it go (dest resolved at top; --dest / --project already applied) -
 // ---- version awareness: install fresh, update in place, or skip if current -
 const readVersion = async (dir) =>
   (await readFile(join(dir, 'VERSION'), 'utf8').catch(() => '')).trim();

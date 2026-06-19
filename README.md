@@ -28,6 +28,14 @@ You keep your tools. TARS makes them know your work.
 
 ## Install
 
+**Open from anywhere** (after global install):
+```sh
+npm install -g tars-chief-of-staff
+tars                  # installs if needed, opens Claude with the right prompt
+tars install          # full personalized setup interview
+tars use              # copy-paste prompt for Cowork / claude.ai
+```
+
 **Claude Code** (paste as a message, Claude runs it):
 ```
 npx tars-chief-of-staff

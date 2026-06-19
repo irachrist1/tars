@@ -62,6 +62,10 @@ A real local index, plus a packaging & update layer that ships it everywhere.
   prompt or copy/paste for Cowork/claude.ai; npx installer offers both interactively.
 - **`--use` mode** (skills.sh-style): `npx tars-chief-of-staff --use` emits a
   paste-ready SKILL.md wrap + temp supporting files, like `skills use`.
+- **Global `tars` command:** `npm install -g tars-chief-of-staff` adds a short
+  `tars` binary on PATH. `tars` / `tars open` install if needed and launch Claude
+  from any directory; `tars install` runs the full interview; `tars use` is the
+  paste-ready Cowork/claude.ai wrap.
 
 ## [1.1.0] — 2026-06-17
 

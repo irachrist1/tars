@@ -20,6 +20,7 @@
   ],
   "type": "module",
   "bin": {
+    "tars": "bin/install.mjs",
     "tars-chief-of-staff": "bin/install.mjs"
   },
   "files": [

@@ -17,8 +17,17 @@ paths — never assume they use Claude Code.
 - **Claude Desktop** (macOS): open the app, then paste the prompt from Option 2
 - **Cowork / claude.ai**: no shell launch — use Option 2
 
-The installer (`npx tars-chief-of-staff`) can launch Claude Code automatically when
+The installer (`tars` or `npx tars-chief-of-staff`) can launch Claude Code automatically when
 the user picks this option and the CLI is on PATH.
+
+From any directory after a global install:
+
+```bash
+npm install -g tars-chief-of-staff
+tars                  # install if needed, then open Claude with the right prompt
+tars open             # same
+tars install          # full personalized setup interview
+```
 
 ## Option 2 — Copy and paste
 
@@ -32,9 +41,10 @@ set up my chief of staff
 `skills use` from skills.sh):
 
 ```bash
-npx tars-chief-of-staff --use | pbcopy          # macOS
-npx tars-chief-of-staff --use                   # print to terminal, paste into Claude
-npx tars-chief-of-staff --use --continue        # after setup: continue as my chief of staff
+tars use | pbcopy                        # macOS (after npm i -g tars-chief-of-staff)
+tars use                                  # print to terminal, paste into Claude
+tars use --continue                       # after setup: continue as my chief of staff
+npx tars-chief-of-staff --use             # same without a global install
 ```
 
 This emits the SKILL.md inside a `<SKILL.md>` block plus supporting files in a
