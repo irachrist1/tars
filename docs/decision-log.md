@@ -47,7 +47,12 @@ Decisions made during the autonomous ship pass (v1.3.0).
 **Decision:** `references/onboarding-screens.md` numbered 1–8 / 9–14 without rewriting full onboarding.md.  
 **Why:** Phase 6 deliverable; director script stays in onboarding.md.
 
-## 2026-06-19 — Version bump 1.3.0
+## 2026-06-19 — Doctor readiness 100/100
 
-**Decision:** Minor bump (not 2.0) — additive CLI and scripts; no breaking installer contract.  
-**Why:** SemVer; manifest-driven installers remain compatible.
+**Decision:** `ready` requires every check passing and score === 100; CI uses `tests/cli/smoke.mjs` with full fixture env.  
+**Why:** User requirement — no partial ship at 70/80/90%.
+
+## 2026-06-19 — Cross-platform script paths
+
+**Decision:** `run-script.mjs` resolves scripts relative to repo root (`skills/chief-of-staff/scripts/…`); demo fails fast on build/query errors.  
+**Why:** Windows CI failed when absolute paths were re-joined incorrectly under Git Bash.

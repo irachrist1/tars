@@ -121,7 +121,8 @@ export async function runDoctor({ dest = defaultSkillDest(), workRoot = detectWo
   }
 
   score = Math.min(max, score);
-  const ready = score >= 70;
+  const allOk = checks.every((c) => c.ok);
+  const ready = allOk && score === max;
   return { ready, score, checks, workRoot, workspace: ws, skillDest: dest, skillVersion: destV || srcV };
 }
 

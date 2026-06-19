@@ -20,7 +20,7 @@ Last updated: 2026-06-19 (v1.3.0 ship pass). Each bullet maps to a mechanism and
 | Duolingo onboarding | Installer 8 screens + `onboarding-screens.md` | **Shipped** | `tars install`, references |
 | Nothing copied off machine | Index = pointers/snippets; workspace = markdown pointers | **Shipped** | `docs/data-safety.md`, indexer design |
 | No stale skill versions | Version compare on `tars open` | **Shipped** | `ensureSkillCurrent` |
-| Fresh install → doctor green | `tars doctor` 0–100 score | **Shipped** | fixture env ≥70 with index + skill |
+| Fresh install → doctor green | `tars doctor` 0–100 score | **Shipped** | CI fixture env **100/100** (`tests/cli/smoke.mjs`) |
 
 ## User-facing strings scrubbed
 

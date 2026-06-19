@@ -175,7 +175,7 @@ Usage:
   tars install            Full setup interview + install
   tars use                Full skill wrap for Cowork / claude.ai (paste)
   tars use --continue     Handoff prompt after setup
-  tars doctor             Health check (skill, index, connectors, workspace)
+  tars doctor             Health check — all checks must pass (100/100)
   tars status             Same as doctor — one-screen readiness
   tars index build|update|query|stats   Local file index
   tars publish            Build zip + Cowork upload steps
@@ -309,12 +309,16 @@ async function runOpenMode(dest = userDest) {
 // ---- routing ---------------------------------------------------------------
 if (subcommand === 'doctor' || has('--doctor')) {
   const tools = val('--tools');
-  printDoctor(await runDoctor({ dest, workRoot: detectWorkFolder(), toolsJson: tools }), { json: has('--json') });
-  process.exit(0);
+  const workRoot = val('--root') || (has('--fixture') ? join(dirname(fileURLToPath(import.meta.url)), '..', 'tests', 'fixtures', 'work-corpus') : detectWorkFolder());
+  const doctorDest = val('--dest') || dest;
+  const result = await runDoctor({ dest: resolve(doctorDest), workRoot: workRoot ? resolve(workRoot) : null, toolsJson: tools });
+  printDoctor(result, { json: has('--json') });
+  process.exit(result.ready ? 0 : 1);
 }
 
 if (subcommand === 'status') {
-  await runStatus({ dest, workRoot: detectWorkFolder(), toolsJson: val('--tools'), json: has('--json') });
+  const workRoot = val('--root') || detectWorkFolder();
+  await runStatus({ dest: resolve(val('--dest') || dest), workRoot: workRoot ? resolve(workRoot) : null, toolsJson: val('--tools'), json: has('--json') });
   process.exit(0);
 }
 

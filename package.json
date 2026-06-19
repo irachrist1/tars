@@ -33,7 +33,7 @@
   "scripts": {
     "install-skill": "node bin/install.mjs",
     "package": "node scripts/package.mjs",
-    "test": "bash tests/cli/smoke.sh",
+    "test": "node tests/cli/smoke.mjs",
     "scan": "node scripts/precommit-scan.mjs",
     "install-hooks": "ln -sf ../../scripts/precommit-scan.mjs .git/hooks/pre-commit && chmod +x scripts/precommit-scan.mjs && echo 'pre-commit hook installed'"
   },

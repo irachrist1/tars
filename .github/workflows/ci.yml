@@ -21,12 +21,7 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y zip
       - name: CLI smoke tests
-        if: runner.os != 'Windows'
-        run: bash tests/cli/smoke.sh
-      - name: CLI smoke tests (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: bash tests/cli/smoke.sh
+        run: node tests/cli/smoke.mjs
       - name: Windows installer syntax
         if: runner.os == 'Windows'
         shell: pwsh

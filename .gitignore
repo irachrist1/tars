@@ -45,3 +45,6 @@ npm-debug.log*
 
 # TARS local index — derived data, rebuilt on demand, never committed
 .tars-index/
+tests/fixtures/.skill-install/
+tests/fixtures/work-corpus/.tars-index/
+tests/fixtures/work-corpus/Chief of Staff/
