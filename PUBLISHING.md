@@ -40,7 +40,7 @@ MANIFEST/VERSION must match `package.json`.
 
 ### Local — Claude Code (auto-updating by re-run)
 
-```
+```sh
 npx tars-chief-of-staff            # always pulls latest from npm; --update to refresh in place
 curl -fsSL .../install.sh | sh     # reads MANIFEST, updates if a newer VERSION is published
 irm .../Install-Tars.ps1 | iex     # same, on Windows

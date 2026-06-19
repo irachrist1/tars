@@ -33,6 +33,7 @@ const version = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).ver
 function walk(dir) {
   const out = [];
   for (const name of readdirSync(dir)) {
+    if (name.startsWith('.')) continue; // never ship hidden files/dirs (e.g. a stray .tars-index/)
     const abs = join(dir, name);
     if (statSync(abs).isDirectory()) { out.push(...walk(abs)); continue; }
     const rel = relative(SKILL_DIR, abs).split('\\').join('/');

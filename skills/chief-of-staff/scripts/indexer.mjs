@@ -41,6 +41,7 @@ const arg = (f, d) => { const i = argv.indexOf(f); return i >= 0 && argv[i + 1] 
 const has = (f) => argv.includes(f);
 const ROOT = arg('--root', null);
 const TOP = parseInt(arg('--top', '8'), 10);
+if (!Number.isInteger(TOP) || TOP <= 0) die('--top must be a positive integer');
 const AS_JSON = has('--json');
 const STORE = arg('--store', ROOT ? join(resolve(ROOT), '.tars-index') : null);
 
@@ -141,7 +142,12 @@ async function* walk(dir) {
   let entries;
   try { entries = await readdir(dir, { withFileTypes: true }); } catch { return; }
   for (const e of entries) {
-    if (e.name.startsWith('.') && e.isDirectory() && e.name !== '.obsidian') continue;
+    // Skip everything hidden — both dirs and files (so `.env`, `.npmrc`, key
+    // material, etc. never get indexed or surfaced in a snippet). The one
+    // exception is the `.obsidian` vault dir, which holds real notes.
+    if (e.name.startsWith('.')) {
+      if (!(e.isDirectory() && e.name === '.obsidian')) continue;
+    }
     if (SKIP_DIR.has(e.name)) continue;
     const p = join(dir, e.name);
     if (e.isDirectory()) { yield* walk(p); continue; }
@@ -237,6 +243,7 @@ async function build({ incremental }) {
 
 // ---- query -----------------------------------------------------------------
 async function query() {
+  if (!STORE) die('query needs --store <dir> (or --root "<work folder>" to locate its .tars-index)');
   // the query text is the first non-flag arg (always passed as one quoted phrase)
   const q = (argv[1] && !argv[1].startsWith('--')) ? argv[1] : null;
   if (!q) die('query needs text: indexer.mjs query "last year ACME numbers"');
@@ -313,6 +320,7 @@ async function makeSnippet(absPath, qTerms) {
 
 // ---- stats -----------------------------------------------------------------
 async function stats() {
+  if (!STORE) die('stats needs --store <dir> (or --root "<work folder>" to locate its .tars-index)');
   const idx = await loadIndex();
   if (!idx) die(`no index at ${STORE}`);
   const { meta, postings } = idx;
@@ -338,7 +346,7 @@ switch (cmd) {
     console.log('usage: indexer.mjs <build|update|query|stats> [options]');
     console.log('  build  --root "<work folder>" [--store <dir>]');
     console.log('  update --root "<work folder>" [--store <dir>]');
-    console.log('  query  "<text>" [--store <dir>] [--top 8] [--json]');
-    console.log('  stats  [--store <dir>]');
+    console.log('  query  "<text>" (--store <dir> | --root <work folder>) [--top 8] [--json]');
+    console.log('  stats  (--store <dir> | --root <work folder>)');
     process.exit(cmd ? 1 : 0);
 }

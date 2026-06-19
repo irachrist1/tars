@@ -57,9 +57,16 @@ if [ -z "$MANIFEST" ]; then
 fi
 
 mkdir -p "$DEST"
-echo "$MANIFEST" | grep -v '^#' | grep -v '^version ' | grep -v '^[[:space:]]*$' | while IFS= read -r rel; do
+# Build the file list first, then loop in the main shell (not a pipe subshell) so
+# a failed download actually stops the installer instead of being swallowed.
+# Manifest paths never contain spaces, so word-splitting the list is safe.
+files=$(echo "$MANIFEST" | grep -v '^#' | grep -v '^version ' | grep -v '^[[:space:]]*$')
+for rel in $files; do
   mkdir -p "$DEST/$(dirname "$rel")"
-  curl -fsSL "$BASE/$rel" -o "$DEST/$rel"
+  if ! curl -fsSL "$BASE/$rel" -o "$DEST/$rel"; then
+    echo "  error: failed to download $rel — install aborted (nothing claimed)" >&2
+    exit 1
+  fi
   echo "    · $rel"
 done
 

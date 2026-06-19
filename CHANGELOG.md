@@ -36,16 +36,6 @@ A real local index, plus a packaging & update layer that ships it everywhere.
   indexer was zero installer edits: it shipped automatically once the manifest
   regenerated.
 
-### Distribution
-- **One source of truth.** New `scripts/package.mjs` walks the skill folder and
-  generates `MANIFEST` (version + every file to ship) and `VERSION` (carried
-  inside the skill to every surface), and builds `dist/chief-of-staff.zip` for
-  cloud upload. `npm run package` regenerates all three.
-- **Installers no longer drift.** `install.sh` and `Install-Tars.ps1` now read the
-  MANIFEST and fetch exactly what it lists — fixing the bug where the curl/PowerShell
-  paths shipped without `connectors.mjs` (the v1.1.0 headline feature). Add a file
-  to the skill and it ships automatically.
-
 ### Updates
 - **Re-running is now an update, not a wall.** All three installers compare the
   installed `VERSION` to the published one: same → "already up to date"; newer →
