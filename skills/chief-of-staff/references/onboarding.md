@@ -197,6 +197,28 @@ Cowork, claude.ai, and mobile use the **account skill store**.
 
 Full details: `references/publishing.md`. Do not skip this for users who named Cowork or claude.ai.
 
+## Phase 5 — Handoff: how to continue in Claude (~30s)
+
+After setup (and Phase 4 if they use Cowork/claude.ai), **always offer two paths**.
+See `references/handoff.md`.
+
+> "You're set up. How do you want to continue?
+> **1.** I can keep going here — we're already in Claude.
+> **2.** Or copy this for Cowork / claude.ai / another device:"
+
+Show a clear copyable block:
+
+```
+continue as my chief of staff
+```
+
+If they pick **launch** and you're in Claude Code with shell access, you are already
+the handoff — just continue. If they need another surface, give them the copyable
+prompt; do not assume they will stay on this one.
+
+**First-time install** (workspace not built yet) uses `set up my chief of staff`
+instead. **After onboarding** uses `continue as my chief of staff`.
+
 ## Degraded paths, explicitly
 
 - **No connector and no file access** (rare: claude.ai without the M365 connector):

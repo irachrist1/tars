@@ -37,6 +37,46 @@ const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY) && !has
 const ok = (m) => console.log(`  ${m}`);
 const die = (m) => { console.error(`  error: ${m}`); process.exit(1); };
 
+const PROMPT_SETUP = 'set up my chief of staff';
+const PROMPT_CONTINUE = 'continue as my chief of staff';
+
+function printCopyablePrompt(prompt) {
+  const inner = `  ${prompt}  `;
+  const width = Math.max(inner.length, 42);
+  const bar = '─'.repeat(width - 2);
+  console.log('');
+  ok('Copy and paste this into Claude (Cowork, claude.ai, Desktop, Code, or mobile):');
+  console.log('');
+  console.log(`  ┌${bar}┐`);
+  console.log(`  │${inner.padEnd(width - 2)}│`);
+  console.log(`  └${bar}┘`);
+  console.log('');
+}
+
+function tryCopyToClipboard(text) {
+  try {
+    if (process.platform === 'darwin') {
+      const r = spawnSync('pbcopy', { input: text });
+      return !r.error && r.status === 0;
+    }
+    if (process.platform === 'win32') {
+      const r = spawnSync('clip', { input: text, shell: true });
+      return !r.error && r.status === 0;
+    }
+    for (const [cmd, ...args] of [['xclip', '-selection', 'clipboard'], ['wl-copy']]) {
+      const r = spawnSync(cmd, args, { input: text });
+      if (!r.error && r.status === 0) return true;
+    }
+  } catch {}
+  return false;
+}
+
+function openClaudeDesktop() {
+  if (process.platform !== 'darwin') return false;
+  const r = spawnSync('open', ['-a', 'Claude'], { stdio: 'ignore' });
+  return !r.error && r.status === 0;
+}
+
 // ---- branding --------------------------------------------------------------
 function banner() {
   console.log('');
@@ -140,6 +180,64 @@ function macAppInstalled(name) {
     try { if (statSync(join(base, `${name}.app`)).isDirectory()) return true; } catch {}
   }
   return false;
+}
+
+async function offerHandoff(prompt) {
+  if (!interactive) {
+    ok('Agent: do not stop here. The skill is installed. Read');
+    ok(`  ${join(dest, 'SKILL.md')}`);
+    ok('then follow it now — it checks for an existing setup and either adopts it');
+    ok('or runs onboarding (first question: where their work is kept).');
+    ok('The skill loads automatically in future sessions.');
+    printCopyablePrompt(prompt);
+    return;
+  }
+
+  if (has('--no-launch')) {
+    ok('Start in Claude — pick one:');
+    ok(`  1. Claude Code:  claude "${prompt}"`);
+    ok('  2. Cowork / claude.ai — copy the prompt below:');
+    printCopyablePrompt(prompt);
+    return;
+  }
+
+  const claude = claudeAvailable();
+  const codex = cliAvailable('codex');
+  const runner = claude ? { cmd: 'claude', name: 'Claude Code' }
+               : codex  ? { cmd: 'codex',  name: 'Codex' }
+               : null;
+
+  const handoff = await choose('How do you want to start in Claude?', [
+    { label: runner
+        ? `Open ${runner.name} now — launch it with the prompt`
+        : 'Open Claude Desktop — then paste the prompt (macOS)',
+      key: 'launch',
+      recommended: Boolean(runner || process.platform === 'darwin'),
+    },
+    { label: 'Copy the prompt — I\'ll paste it into Cowork or claude.ai myself', key: 'copy' },
+  ]);
+
+  if (handoff.key === 'launch') {
+    if (runner) {
+      ok(`Opening ${runner.name} with your prompt…`);
+      console.log('');
+      const r = spawnSync(runner.cmd, [prompt], { stdio: 'inherit' });
+      process.exit(r.status ?? 0);
+    }
+    if (openClaudeDesktop()) {
+      ok('Opened Claude Desktop. Paste this when it\'s ready:');
+      printCopyablePrompt(prompt);
+      if (tryCopyToClipboard(prompt)) ok('(Also copied to your clipboard.)');
+      return;
+    }
+    ok('Could not launch Claude from here. Use the copyable prompt instead:');
+    printCopyablePrompt(prompt);
+    if (tryCopyToClipboard(prompt)) ok('(Copied to your clipboard.)');
+    return;
+  }
+
+  printCopyablePrompt(prompt);
+  if (tryCopyToClipboard(prompt)) ok('Copied to your clipboard.');
 }
 
 // ---- uninstall -------------------------------------------------------------
@@ -351,40 +449,8 @@ prove yourself on a real meeting prep ("prep me for the 3pm call") with a citati
 // (The curl/PowerShell paths in install.sh / Install-Tars.ps1 are the fallback
 // for machines without Node. Agents that can't run npx should use those instead.)
 
-// ---- now actually start it -------------------------------------------------
-// Prefer Claude Code, fall back to Codex — either way we hand off into a coding
-// agent that reads the seed and continues with all the context just captured.
-const claude = claudeAvailable();
-const codex = cliAvailable('codex');
-const runner = claude ? { cmd: 'claude', name: 'Claude Code' }
-             : codex  ? { cmd: 'codex',  name: 'Codex' }
-             : null;
-
-if (interactive && runner && !has('--no-launch')) {
-  const a = await ask(`Continue in ${runner.name} now and set up your chief of staff?  [Y/n]`, 'y');
-  if (!a.toLowerCase().startsWith('n')) {
-    ok(`Opening ${runner.name}…  it picks up everything you just told me.`);
-    console.log('');
-    const r = spawnSync(runner.cmd, ['set up my chief of staff'], { stdio: 'inherit' });
-    process.exit(r.status ?? 0);
-  }
-}
-
-// Not launching — tell whoever (or whatever) is reading how to start it.
-if (!interactive) {
-  // An agent ran us (no TTY). Speak directly to it.
-  ok('Agent: do not stop here. The skill is installed. Read');
-  ok(`  ${join(dest, 'SKILL.md')}`);
-  ok('then follow it now — it checks for an existing setup and either adopts it');
-  ok('or runs onboarding (first question: where their work is kept).');
-  ok('The skill loads automatically in future sessions.');
-} else if (runner) {
-  ok('Pick it back up any time with:');
-  ok(`  ${runner.cmd} "set up my chief of staff"`);
-} else {
-  ok('Open Claude (Desktop, Code, claude.ai, or mobile) and say:');
-  ok('  set up my chief of staff');
-}
+// ---- hand off into Claude: launch or copyable prompt -----------------------
+await offerHandoff(PROMPT_SETUP);
 
 console.log('');
 ok('If your work lives in Microsoft 365, enable the Microsoft 365 connector in your');

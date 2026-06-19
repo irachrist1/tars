@@ -58,6 +58,8 @@ A real local index, plus a packaging & update layer that ships it everywhere.
 - **Investigation discipline:** new `references/investigation-discipline.md` for
   verify-then-conclude, sent-mail checks, provenance, entity modeling, contact weighting.
 - **`ALIASES.md`** workspace shape for shorthand/typo mapping.
+- **Post-setup handoff:** Phase 5 + `references/handoff.md` — launch Claude with the
+  prompt or copy/paste for Cowork/claude.ai; npx installer offers both interactively.
 
 ## [1.1.0] — 2026-06-17
 

@@ -72,8 +72,22 @@ Set-Content -Path $localVersionPath -Value $remoteVersion -NoNewline
 Write-Host ""
 Write-Host "  # chief-of-staff v$remoteVersion -> $dest"
 Write-Host ""
-Write-Host "  Open Claude and say:  set up my chief of staff"
+Write-Host "  How do you want to start in Claude?"
 Write-Host ""
+Write-Host "  1) Claude Code (terminal):"
+Write-Host "       claude `"set up my chief of staff`""
+Write-Host ""
+Write-Host "  2) Cowork / claude.ai / Desktop - copy and paste:"
+Write-Host ""
+Write-Host "  +----------------------------------------+"
+Write-Host "  |  set up my chief of staff              |"
+Write-Host "  +----------------------------------------+"
+Write-Host ""
+try {
+    "set up my chief of staff" | Set-Clipboard
+    Write-Host "  (Copied to your clipboard.)"
+    Write-Host ""
+} catch {}
 Write-Host "  Use it in Cowork or claude.ai too?  Upload the skill once via"
 Write-Host "  Customize > Skills > + > Upload a skill (see references/publishing.md)."
 Write-Host ""
