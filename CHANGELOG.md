@@ -3,6 +3,30 @@
 All notable changes to TARS are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [1.2.0] — 2026-06-19
+
+Addresses user feedback from onboarding + first-use sessions (#1–#13).
+
+### Cross-surface setup
+- **Publish everywhere:** onboarding now treats account-skill upload (Cowork / claude.ai /
+  mobile) as a completion step, not a surprise discovery. New `scripts/package.mjs` builds
+  an upload-ready zip; `PUBLISHING.md` documents the flow.
+- **Environment wiring:** onboarding asks which surfaces the user will use and proactively
+  recommends Cowork + Obsidian/second brain when relevant.
+
+### Detection & tooling
+- **Windows nested OneDrive:** installer recurses 1–2 levels under `%USERPROFILE%\OneDrive*`
+  to find nested `OneDrive - <Org>` org-sync folders.
+- **scan.mjs hub detection:** skeleton now surfaces working hubs at depth (not one giant
+  `(root)` bucket); fixes Windows path separators.
+- **connectors.mjs fallback:** when `claude mcp list` is unavailable, pass visible `mcp__*`
+  tool names via `--tools` / `--stdin`.
+
+### Investigation discipline
+- New `references/investigation-discipline.md`: verify-then-conclude for status questions,
+  recurring deliverables, provenance, entity modeling, and contact activity.
+- New `ALIASES.md` workspace file for shorthand/typo → entity mapping.
+
 ## [1.1.0] — 2026-06-17
 
 TARS stops being a file mapper and becomes a map of your whole connected operation.

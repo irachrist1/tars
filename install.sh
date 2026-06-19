@@ -29,10 +29,14 @@ fi
 mkdir -p "$DEST/references" "$DEST/scripts"
 
 echo "  Fetching chief-of-staff…"
-curl -fsSL "$BASE/SKILL.md"                          -o "$DEST/SKILL.md"
-curl -fsSL "$BASE/references/onboarding.md"          -o "$DEST/references/onboarding.md"
-curl -fsSL "$BASE/references/workspace-shapes.md"    -o "$DEST/references/workspace-shapes.md"
-curl -fsSL "$BASE/scripts/scan.mjs"                  -o "$DEST/scripts/scan.mjs"
+curl -fsSL "$BASE/SKILL.md"                              -o "$DEST/SKILL.md"
+curl -fsSL "$BASE/PUBLISHING.md"                         -o "$DEST/PUBLISHING.md"
+curl -fsSL "$BASE/references/onboarding.md"              -o "$DEST/references/onboarding.md"
+curl -fsSL "$BASE/references/workspace-shapes.md"        -o "$DEST/references/workspace-shapes.md"
+curl -fsSL "$BASE/references/investigation-discipline.md" -o "$DEST/references/investigation-discipline.md"
+curl -fsSL "$BASE/scripts/scan.mjs"                      -o "$DEST/scripts/scan.mjs"
+curl -fsSL "$BASE/scripts/connectors.mjs"                -o "$DEST/scripts/connectors.mjs"
+curl -fsSL "$BASE/scripts/package.mjs"                   -o "$DEST/scripts/package.mjs"
 
 echo ""
 echo "  ✓ chief-of-staff installed → $DEST"

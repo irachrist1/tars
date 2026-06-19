@@ -31,10 +31,14 @@ New-Item -ItemType Directory -Force -Path (Join-Path $dest "scripts") | Out-Null
 
 Write-Host "  Fetching chief-of-staff..."
 $files = @{
-    "SKILL.md"                       = "SKILL.md"
-    "references/onboarding.md"       = "references\onboarding.md"
-    "references/workspace-shapes.md" = "references\workspace-shapes.md"
-    "scripts/scan.mjs"               = "scripts\scan.mjs"
+    "SKILL.md"                               = "SKILL.md"
+    "PUBLISHING.md"                          = "PUBLISHING.md"
+    "references/onboarding.md"               = "references\onboarding.md"
+    "references/workspace-shapes.md"         = "references\workspace-shapes.md"
+    "references/investigation-discipline.md" = "references\investigation-discipline.md"
+    "scripts/scan.mjs"                       = "scripts\scan.mjs"
+    "scripts/connectors.mjs"                 = "scripts\connectors.mjs"
+    "scripts/package.mjs"                    = "scripts\package.mjs"
 }
 foreach ($src in $files.Keys) {
     Invoke-WebRequest -Uri "$base/$src" -OutFile (Join-Path $dest $files[$src]) -UseBasicParsing

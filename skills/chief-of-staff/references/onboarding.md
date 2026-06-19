@@ -55,12 +55,18 @@ Detect, don't ask:
    (Claude Code, Desktop with file access).
 3. **Where is the work?** Auto-detect the OneDrive folder before asking:
    - macOS: `~/Library/CloudStorage/OneDrive-*` (also `~/OneDrive*`)
-   - Windows: `%USERPROFILE%\OneDrive*` (the `-<OrgName>` variant is the work one)
-4. **What else is connected?** Run `node scripts/connectors.mjs` (in Desktop, read
-   the `mcp__*` tools you can see) to map the full connector surface — Linear,
-   Notion, Gmail, Granola, Calendar, Drive, and the rest. Connectors are half the
-   operation; files are the other half. Save the result to `CONNECTORS.md` when you
-   create the workspace.
+   - Windows: `%USERPROFILE%\OneDrive*` — **and recurse 1–2 levels** inside each
+     for nested org syncs (`OneDrive\<Org>\OneDrive - <Org>\Documents\…`). The
+     personal OneDrive root is often wrong; the nested `OneDrive - <Org>` folder is
+     usually the real work root. Propose what you find and confirm.
+4. **What else is connected?** Run `node scripts/connectors.mjs` (in Desktop/Cowork,
+   pass visible `mcp__*` tools: `node scripts/connectors.mjs --tools '[…]'`) to map
+   the full connector surface — Linear, Notion, Gmail, Granola, Calendar, Drive, and
+   the rest. Connectors are half the operation; files are the other half. Save the
+   result to `CONNECTORS.md` when you create the workspace.
+5. **Which surfaces will they use?** Ask early (before the deep read finishes in your
+   head): Cowork, claude.ai, Claude Code, mobile? This sets whether you must publish
+   the skill to the account store at the end (Phase 4).
 
 This yields one of three modes. Say which one you're in, in one plain sentence,
 then proceed identically from the user's point of view:
@@ -70,6 +76,24 @@ then proceed identically from the user's point of view:
 | **Full** (connector + local) | both | `node scripts/scan.mjs` (in this skill's folder) for the skeleton, connector for content |
 | **Connector-only** (claude.ai, mobile) | connector search + folder listing | walk top 2–3 folder levels, recent-activity searches |
 | **Local-only** (no connector yet) | filesystem + `mdfind` (Spotlight) | scan + sampling; use `mdfind` for content search (semantic on macOS Golden Gate); note that mail/calendar/meetings are dark until the connector is added — don't nag about it again |
+
+## Phase 0.5 — Environment setup (one question, ~1 min)
+
+Before the deep read, shape the working environment:
+
+> "Where will you use this — Cowork, claude.ai, Claude Code, mobile? And do you keep
+> an Obsidian vault or other second brain?"
+
+Then wire what they named:
+
+- **Cowork / claude.ai / mobile** → they need the skill in the **account skill store**
+  (Phase 4). The local `~/.claude/skills/` install does not reach these surfaces.
+- **Obsidian / second brain** → if missing and they'd benefit, mention it once (plain
+  files they own; TARS reads it). If one exists, adopt it (below) instead of duplicating.
+- **Claude Desktop / Cowork** → if not installed, mention once. This is where TARS lives
+  for non-terminal users.
+
+Do not push apps. One sentence each, only what helps their named surfaces.
 
 ## Phase 1 — One question, then go look (~5 min)
 
@@ -140,8 +164,9 @@ Then the four remaining interview questions, conversationally, not as a form:
    draft in full. One sentence on what it is: "my notes about your operation —
    yours to read, edit, or delete; your documents are never moved or copied."
 2. **On the yes**, create: `MAP.md`, `USER.md` (their answers + boundaries),
-   `Clients/<name>.md` for each active client, empty `LOG.md` and `ARCHIVE.md`
-   (shapes in `workspace-shapes.md`). Date everything.
+   `Clients/<name>.md` for each active client, empty `LOG.md`, `ARCHIVE.md`, and
+   `ALIASES.md` (start empty or seed from shorthand they used in the interview).
+   Shapes in `workspace-shapes.md`. Date everything.
 3. **Prove it immediately, once.** Default to prepping their next calendar meeting
    when a calendar is reachable — it's the signature demo the product promises
    ("prep me for the 3pm call": who, history, open items, what to ask). Fall back
@@ -151,6 +176,22 @@ Then the four remaining interview questions, conversationally, not as a form:
    up. Ask me anything about your work, or ask for a brief any morning. I'll keep
    my notes current and mention it when I change them." Log the session in
    `LOG.md` as one line. No tour, no feature list.
+
+## Phase 4 — Publish everywhere they work (~2 min)
+
+**Setup is not complete until the skill is available on every surface they named.**
+
+Local install (`~/.claude/skills/chief-of-staff/`) reaches Claude Code only.
+Cowork, claude.ai, and mobile use the **account skill store**.
+
+1. Run `node scripts/package.mjs` in this skill's folder → `chief-of-staff.zip`.
+2. Guide the user: **Claude → Customize → Skills → + → Upload a skill** → select the zip.
+3. Explain in one sentence: personal upload syncs to their account; org admins can
+   share skills firm-wide; **updates are manual** — re-run package + re-upload to refresh.
+4. Confirm it appears on each surface they named. If they use Cowork, have them open
+   Cowork and verify the skill is listed.
+
+Full details: `PUBLISHING.md`. Do not skip this for users who named Cowork or claude.ai.
 
 ## Degraded paths, explicitly
 

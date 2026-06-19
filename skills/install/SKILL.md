@@ -35,11 +35,15 @@ irm https://raw.githubusercontent.com/irachrist1/tars/main/Install-Tars.ps1 | ie
 ```
 
 **4. Direct write (no network tools, last resort):**
-Fetch the four files from GitHub raw URLs and write them directly:
+Fetch the skill files from GitHub raw URLs and write them directly:
 - `https://raw.githubusercontent.com/irachrist1/tars/main/skills/chief-of-staff/SKILL.md`
+- `https://raw.githubusercontent.com/irachrist1/tars/main/skills/chief-of-staff/PUBLISHING.md`
 - `https://raw.githubusercontent.com/irachrist1/tars/main/skills/chief-of-staff/references/onboarding.md`
 - `https://raw.githubusercontent.com/irachrist1/tars/main/skills/chief-of-staff/references/workspace-shapes.md`
+- `https://raw.githubusercontent.com/irachrist1/tars/main/skills/chief-of-staff/references/investigation-discipline.md`
 - `https://raw.githubusercontent.com/irachrist1/tars/main/skills/chief-of-staff/scripts/scan.mjs`
+- `https://raw.githubusercontent.com/irachrist1/tars/main/skills/chief-of-staff/scripts/connectors.mjs`
+- `https://raw.githubusercontent.com/irachrist1/tars/main/skills/chief-of-staff/scripts/package.mjs`
 
 Write them to `~/.claude/skills/chief-of-staff/` preserving the folder structure.
 

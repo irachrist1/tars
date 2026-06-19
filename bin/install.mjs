@@ -65,6 +65,20 @@ async function choose(question, options) {
 }
 
 // ---- auto-detect the work folder (OneDrive) --------------------------------
+function findNestedOrgOneDrive(dir, depth = 0, maxDepth = 2) {
+  const found = [];
+  if (depth > maxDepth) return found;
+  let entries;
+  try { entries = readdirSync(dir); } catch { return found; }
+  for (const name of entries) {
+    const p = join(dir, name);
+    try { if (!statSync(p).isDirectory()) continue; } catch { continue; }
+    if (/^OneDrive\s*-\s*\S/i.test(name) && !/personal/i.test(name)) found.push(p);
+    if (depth < maxDepth) found.push(...findNestedOrgOneDrive(p, depth + 1, maxDepth));
+  }
+  return found;
+}
+
 function detectWorkFolder() {
   const home = homedir();
   const candidates = [];
@@ -76,13 +90,24 @@ function detectWorkFolder() {
       }
     } catch {}
   }
-  for (const name of ['OneDrive', 'OneDrive - Personal']) {
-    const p = join(home, name);
-    try { if (statSync(p).isDirectory()) candidates.push(p); } catch {}
+  if (process.platform === 'win32') {
+    try {
+      for (const name of readdirSync(home)) {
+        if (!/^OneDrive/i.test(name)) continue;
+        const top = join(home, name);
+        try { if (statSync(top).isDirectory()) candidates.push(top); } catch {}
+        candidates.push(...findNestedOrgOneDrive(top));
+      }
+    } catch {}
+  } else {
+    for (const name of ['OneDrive', 'OneDrive - Personal']) {
+      const p = join(home, name);
+      try { if (statSync(p).isDirectory()) candidates.push(p); } catch {}
+    }
   }
-  // prefer an org variant ("OneDrive - <Company>") — that's the work one
-  const org = candidates.find(p => /OneDrive\s*-\s*\S/i.test(p));
-  return org || candidates[0] || null;
+  const unique = [...new Set(candidates)];
+  const org = unique.find(p => /OneDrive\s*-\s*\S/i.test(p) && !/personal/i.test(p));
+  return org || unique[0] || null;
 }
 
 async function ask(question, def) {
@@ -284,8 +309,22 @@ prove yourself on a real meeting prep ("prep me for the 3pm call") with a citati
     console.log('');
   }
 
+  const surfaces = await choose('Where will you use your chief of staff?', [
+    { label: 'Claude Code (terminal) + Cowork + claude.ai — everywhere', key: 'all', recommended: true },
+    { label: 'Mostly Cowork / claude.ai (browser)', key: 'web' },
+    { label: 'Claude Code only (terminal)', key: 'code' },
+  ]);
+
   ok('Then I\'ll read your work and prep you for a real meeting.');
   console.log('');
+
+  if (surfaces.key !== 'code') {
+    ok('One more step so it works on Cowork and claude.ai (not just this machine):');
+    ok('  node scripts/package.mjs   → builds chief-of-staff.zip');
+    ok('  Claude → Customize → Skills → + → Upload a skill');
+    ok('  See PUBLISHING.md in the skill folder for details.');
+    console.log('');
+  }
 }
 
 // ---- if we got here the Node path succeeded; log it for the agent ----------
