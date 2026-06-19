@@ -98,3 +98,21 @@ Key people: J. Smith (CFO, jsmith@acme.example), L. Wu (controller).
 ## Clients/Archive/ (ended clients)
 
 When a client ends: move `Clients/<name>.md` to `Clients/Archive/<name>.md` whole, add a closing line at its top ("Ended 2026-08: engagement completed"), and shrink the map entry to a tombstone — `**Initech** — ended 2026-08. Brief: Clients/Archive/Initech.md. Files: Work/Clients/Initech/.`
+
+## ALIASES.md (cap ~50 lines)
+
+Shorthand and typos the user uses for known entities. Consult before searching.
+
+```markdown
+# Aliases
+> Shorthand → canonical name. Add when the user corrects you.
+
+| Shorthand | Canonical | Notes |
+|-----------|-----------|-------|
+| acme | ACME Corp | user types lowercase |
+| globex tax | Globex | tax-only engagement |
+| mima | Mima Holdings | common typo for "Mima" |
+```
+
+When the user refers to a client loosely and you find the match in the map, add the
+alias so you never search the wrong name again.

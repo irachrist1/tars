@@ -46,6 +46,18 @@ A real local index, plus a packaging & update layer that ships it everywhere.
 - New `PUBLISHING.md` documents the two-world model (local auto-update via
   re-run; cloud manual upload + re-upload to refresh) and the release checklist.
   Addresses the publishing-model half of issues #1 and #3.
+- User-facing upload steps ship in `references/publishing.md`; onboarding Phase 4
+  makes Cowork/claude.ai availability a completion criterion.
+
+### Onboarding + first-use feedback (#1–#13)
+- **Cross-surface setup:** Phase 0.5 (environment wiring) and Phase 4 (publish
+  everywhere) in onboarding; installer asks which surfaces and surfaces the upload step.
+- **Detection:** Windows nested org-OneDrive recurse in the installer; `scan.mjs`
+  hub drill-down for deep trees; `connectors.mjs` fallback via `--tools` / `--stdin`
+  when `claude mcp list` is unavailable.
+- **Investigation discipline:** new `references/investigation-discipline.md` for
+  verify-then-conclude, sent-mail checks, provenance, entity modeling, contact weighting.
+- **`ALIASES.md`** workspace shape for shorthand/typo mapping.
 
 ## [1.1.0] — 2026-06-17
 

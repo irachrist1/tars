@@ -6,20 +6,22 @@
 // tell you WHERE everything else lives (projects, mail, meetings, docs, design).
 //
 // Usage:
-//   node connectors.mjs            # markdown map to stdout
-//   node connectors.mjs --json     # JSON for the assistant to reason over
+//   node connectors.mjs                         # markdown map to stdout
+//   node connectors.mjs --json                  # JSON for the assistant to reason over
+//   node connectors.mjs --tools '["mcp__granola__list_meetings", ...]'
+//   echo '["mcp__linear__list_issues"]' | node connectors.mjs --stdin
 //
-// Detection is best-effort: if the `claude` CLI isn't on PATH (e.g. running in
-// Claude Desktop), it exits 0 with a note — the assistant then falls back to
-// documenting the mcp__* tools it can see in its own tool list.
+// When `claude mcp list` is unavailable (Claude Desktop, Cowork, mobile), pass the
+// mcp__* tool names visible in the session via --tools, --stdin, or CONNECTOR_TOOLS_JSON.
 
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
 const AS_JSON = process.argv.includes('--json');
+const argv = process.argv.slice(2);
+const arg = (f) => (argv.includes(f) ? argv[argv.indexOf(f) + 1] : null);
 
 // What each known connector holds, and what a chief of staff opens it for.
-// tier: 'work' = open first for real work; 'life' = personal/secondary;
-// 'design' = visual/creative. Unknown connectors are documented generically.
 const REGISTRY = {
   'linear':        { cat: 'Project management', tier: 'work', holds: 'projects, issues, cycles, roadmap, status', use: 'what am I working on, what is in progress, deadlines, planning' },
   'notion':        { cat: 'Docs & wiki',        tier: 'work', holds: 'docs, databases, notes, wikis',            use: 'written knowledge, specs, project pages, structured databases' },
@@ -47,7 +49,6 @@ function display(name) {
   return name.replace(/^claude\.ai\s+/i, '').trim();
 }
 
-// Parse one `claude mcp list` line: "<name>: <url> - <status>"
 function parseLine(line) {
   const m = line.match(/^(.+?):\s+(.*?)\s+-\s+(.+)$/);
   if (!m) return null;
@@ -60,33 +61,69 @@ function parseLine(line) {
   return { name: display(name), key: normalize(name), status };
 }
 
-const r = spawnSync('claude', ['mcp', 'list'], { encoding: 'utf8' });
-if (r.error || r.status !== 0) {
-  const note = 'connector detection unavailable: `claude mcp list` did not run here. Document the mcp__* tools visible in your tool list instead.';
-  console.log(AS_JSON ? JSON.stringify({ available: false, note, connectors: [] }, null, 2) : `> ${note}`);
-  process.exit(0);
+function classify(name, status = 'connected') {
+  const reg = REGISTRY[name] || { cat: 'Other', tier: 'unknown', holds: '(infer from its tools)', use: 'infer from the tool names, or ask the user' };
+  return { name: display(name), key: name, status, ...reg };
 }
 
-const connectors = (r.stdout || '')
-  .split('\n')
-  .map((l) => l.trim())
-  .map(parseLine)
-  .filter(Boolean)
-  .map((c) => {
-    const reg = REGISTRY[c.key] || { cat: 'Other', tier: 'unknown', holds: '(infer from its tools)', use: 'infer from the tool names, or ask the user' };
-    return { ...c, ...reg };
-  });
+// mcp__granola__list_meetings → granola
+function connectorsFromToolNames(tools) {
+  const seen = new Map();
+  for (const t of tools) {
+    const m = String(t).match(/^mcp__([^_]+)__/);
+    if (!m) continue;
+    const key = m[1].toLowerCase().replace(/-/g, ' ');
+    if (!seen.has(key)) seen.set(key, classify(key));
+  }
+  return [...seen.values()];
+}
+
+function loadToolFallback() {
+  const fromArg = arg('--tools');
+  if (fromArg) return JSON.parse(fromArg);
+  if (process.env.CONNECTOR_TOOLS_JSON) return JSON.parse(process.env.CONNECTOR_TOOLS_JSON);
+  if (argv.includes('--stdin')) {
+    const raw = readFileSync(0, 'utf8').trim();
+    if (raw) return JSON.parse(raw);
+  }
+  return null;
+}
+
+let connectors = [];
+let source = 'claude mcp list';
+let available = true;
+
+const r = spawnSync('claude', ['mcp', 'list'], { encoding: 'utf8' });
+if (!r.error && r.status === 0 && (r.stdout || '').trim()) {
+  connectors = (r.stdout || '')
+    .split('\n')
+    .map((l) => l.trim())
+    .map(parseLine)
+    .filter(Boolean)
+    .map((c) => classify(c.key, c.status));
+} else {
+  const tools = loadToolFallback();
+  if (tools && tools.length) {
+    source = 'session tool list';
+    connectors = connectorsFromToolNames(tools);
+  } else {
+    available = false;
+    const note = 'connector detection unavailable: `claude mcp list` did not run here. Re-run with `--tools \'["mcp__…"]\'` or pass the mcp__* tool names from your session. The assistant can also document visible tools directly in CONNECTORS.md.';
+    console.log(AS_JSON ? JSON.stringify({ available: false, note, connectors: [] }, null, 2) : `> ${note}`);
+    process.exit(0);
+  }
+}
 
 const connected = connectors.filter((c) => c.status === 'connected');
 const attention = connectors.filter((c) => c.status !== 'connected');
 const today = new Date().toISOString().slice(0, 10);
 
 if (AS_JSON) {
-  console.log(JSON.stringify({ available: true, scannedAt: today, connected, attention }, null, 2));
+  console.log(JSON.stringify({ available: true, source, scannedAt: today, connected, attention }, null, 2));
 } else {
   const L = [];
   L.push('# Connectors — your connected context surface');
-  L.push(`Detected via \`claude mcp list\` on ${today}. ${connected.length} connected.`);
+  L.push(`Detected via ${source} on ${today}. ${connected.length} connected.`);
   L.push('');
   const section = (title, list) => {
     if (!list.length) return;

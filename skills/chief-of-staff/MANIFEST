@@ -3,7 +3,9 @@
 version 1.2.0
 SKILL.md
 references/indexer.md
+references/investigation-discipline.md
 references/onboarding.md
+references/publishing.md
 references/workspace-shapes.md
 scripts/connectors.mjs
 scripts/indexer.mjs
