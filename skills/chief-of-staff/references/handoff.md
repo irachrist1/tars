@@ -22,11 +22,26 @@ the user picks this option and the CLI is on PATH.
 
 ## Option 2 — Copy and paste
 
-Show the prompt in a clear, copyable block. On macOS/Windows the installer may also
-copy it to the clipboard.
+**Short prompt** (skill already uploaded to the account store):
 
-The user pastes into whichever Claude surface they use — Cowork, claude.ai, Desktop,
-Code, or mobile.
+```
+set up my chief of staff
+```
+
+**Full skill wrap** (Cowork/claude.ai without the skill installed yet — mirrors
+`skills use` from skills.sh):
+
+```bash
+npx tars-chief-of-staff --use | pbcopy          # macOS
+npx tars-chief-of-staff --use                   # print to terminal, paste into Claude
+npx tars-chief-of-staff --use --continue        # after setup: continue as my chief of staff
+```
+
+This emits the SKILL.md inside a `<SKILL.md>` block plus supporting files in a
+temp directory — the same pattern Matt Pocock's `npx skills@latest use` uses.
+
+Show the prompt in a clear, copyable block. On macOS/Windows the installer may also
+copy the short prompt to the clipboard.
 
 ## When to offer this
 

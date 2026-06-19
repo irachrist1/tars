@@ -60,6 +60,8 @@ A real local index, plus a packaging & update layer that ships it everywhere.
 - **`ALIASES.md`** workspace shape for shorthand/typo mapping.
 - **Post-setup handoff:** Phase 5 + `references/handoff.md` — launch Claude with the
   prompt or copy/paste for Cowork/claude.ai; npx installer offers both interactively.
+- **`--use` mode** (skills.sh-style): `npx tars-chief-of-staff --use` emits a
+  paste-ready SKILL.md wrap + temp supporting files, like `skills use`.
 
 ## [1.1.0] — 2026-06-17
 

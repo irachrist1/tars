@@ -9,17 +9,19 @@
 //   npx tars-chief-of-staff --update      # update an existing install in place
 //   npx tars-chief-of-staff --no-launch   # install only, never open Claude
 //   npx tars-chief-of-staff --uninstall   # remove an installed copy
+//   npx tars-chief-of-staff --use         # paste-ready prompt for Cowork/claude.ai (skills.sh style)
+//   npx tars-chief-of-staff --use --agent claude-code   # launch Claude Code with the skill loaded
 //
 // Re-running is safe: if the installed version matches it says so; if it's older
 // it updates in place and keeps your onboarding-seed.md.
 //
 // No dependencies, no network, no telemetry. Copies one folder; optionally launches Claude.
 
-import { cp, mkdir, rm, stat, readFile, writeFile } from 'node:fs/promises';
+import { cp, mkdir, rm, stat, readFile, writeFile, mkdtemp } from 'node:fs/promises';
 import { readdirSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { createInterface } from 'node:readline/promises';
 import { spawnSync } from 'node:child_process';
 
@@ -77,7 +79,61 @@ function openClaudeDesktop() {
   return !r.error && r.status === 0;
 }
 
+// skills.sh-style `--use`: wrap SKILL.md for paste into any Claude surface, or launch an agent.
+async function emitUsePrompt(userRequest = PROMPT_SETUP) {
+  const skillMd = await readFile(join(SRC, 'SKILL.md'), 'utf8');
+  const staging = await mkdtemp(join(tmpdir(), 'tars-use-'));
+  await cp(SRC, staging, { recursive: true });
+  console.log(`You are being given a Skill to execute for the user's next request.
+
+Use the following SKILL.md as your instructions:
+
+<SKILL.md>
+${skillMd.trimEnd()}
+</SKILL.md>
+
+Supporting files for this skill were copied to:
+${staging}
+
+When the SKILL.md references relative paths, read them from that directory.
+
+User request: ${userRequest}`);
+}
+
+async function runUseMode() {
+  const userRequest = val('--prompt') || (has('--continue') ? PROMPT_CONTINUE : PROMPT_SETUP);
+  const agent = val('--agent');
+
+  if (agent) {
+    const cmd = agent === 'codex' ? 'codex' : 'claude';
+    if (!cliAvailable(cmd)) die(`Could not launch ${cmd}: command not found`);
+    const staging = await mkdtemp(join(tmpdir(), 'tars-use-'));
+    await cp(SRC, staging, { recursive: true });
+    const skillMd = await readFile(join(SRC, 'SKILL.md'), 'utf8');
+    const wrapped = `You are being given a Skill to execute for the user's next request.
+
+Use the following SKILL.md as your instructions:
+
+<SKILL.md>
+${skillMd.trimEnd()}
+</SKILL.md>
+
+Supporting files: ${staging}
+
+User request: ${userRequest}`;
+    const r = spawnSync(cmd, [wrapped], { stdio: 'inherit', cwd: staging });
+    process.exit(r.status ?? 0);
+  }
+
+  await emitUsePrompt(userRequest);
+}
+
 // ---- branding --------------------------------------------------------------
+if (has('--use')) {
+  await runUseMode();
+  process.exit(0);
+}
+
 function banner() {
   console.log('');
   console.log('  ████████╗ █████╗ ██████╗ ███████╗');
@@ -236,8 +292,12 @@ async function offerHandoff(prompt) {
     return;
   }
 
-  printCopyablePrompt(prompt);
-  if (tryCopyToClipboard(prompt)) ok('Copied to your clipboard.');
+  if (handoff.key === 'copy') {
+    printCopyablePrompt(prompt);
+    ok('For Cowork without the skill uploaded yet, run:  npx tars-chief-of-staff --use');
+    if (tryCopyToClipboard(prompt)) ok('Copied the short prompt to your clipboard.');
+    return;
+  }
 }
 
 // ---- uninstall -------------------------------------------------------------
