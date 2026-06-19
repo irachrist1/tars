@@ -1,13 +1,17 @@
 #!/bin/sh
-# install.sh — install the chief-of-staff skill without Node or npm.
+# install.sh — install or update the chief-of-staff skill without Node or npm.
 # Works on any Mac or Linux with curl (macOS 10.15+, Ubuntu 18+, WSL).
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/irachrist1/tars/main/install.sh | sh
 #
+# Re-running is safe: if a newer version is published it updates in place and
+# keeps your local onboarding-seed.md. The file list is read from the published
+# MANIFEST, so the installer never drifts out of sync with the skill.
+#
 # Options (pass as env vars):
 #   DEST=/path   — install somewhere other than ~/.claude/skills/chief-of-staff
-#   FORCE=1      — overwrite an existing install
+#   FORCE=1      — reinstall even if already up to date
 
 set -e
 
@@ -19,25 +23,56 @@ printf '  by Christian Tonny · github.com/irachrist1/tars\n\n'
 DEST="${DEST:-$HOME/.claude/skills/chief-of-staff}"
 BASE="https://raw.githubusercontent.com/irachrist1/tars/main/skills/chief-of-staff"
 
-# Don't clobber an edited install without being asked.
-if [ -f "$DEST/SKILL.md" ] && [ -z "$FORCE" ]; then
-  echo "  already installed at $DEST"
-  echo "  re-run with FORCE=1 to overwrite"
+# --- what version is published, and what (if anything) is installed? ---------
+REMOTE_VERSION="$(curl -fsSL "$BASE/VERSION" 2>/dev/null | tr -d ' \r\n' || true)"
+[ -z "$REMOTE_VERSION" ] && REMOTE_VERSION="unknown"
+
+LOCAL_VERSION=""
+[ -f "$DEST/VERSION" ] && LOCAL_VERSION="$(tr -d ' \r\n' < "$DEST/VERSION")"
+
+if [ -f "$DEST/SKILL.md" ]; then
+  if [ "$LOCAL_VERSION" = "$REMOTE_VERSION" ] && [ -z "$FORCE" ]; then
+    echo "  ✓ already up to date (v${LOCAL_VERSION:-?}) at $DEST"
+    echo "    re-run with FORCE=1 to reinstall."
+    echo ""
+    exit 0
+  fi
+  if [ -n "$LOCAL_VERSION" ]; then
+    echo "  Updating v${LOCAL_VERSION} → v${REMOTE_VERSION}…"
+  else
+    echo "  Updating to v${REMOTE_VERSION} (keeping your onboarding-seed.md)…"
+  fi
+else
+  echo "  Installing v${REMOTE_VERSION}…"
+fi
+
+# --- fetch the manifest, then every file it lists ----------------------------
+# The manifest is the source of truth — add a file to the skill and it ships
+# here automatically once package.mjs regenerates the manifest.
+MANIFEST="$(curl -fsSL "$BASE/MANIFEST" 2>/dev/null || true)"
+if [ -z "$MANIFEST" ]; then
+  echo "  error: could not fetch the manifest from $BASE/MANIFEST" >&2
+  echo "         check your connection and try again." >&2
   exit 1
 fi
 
-mkdir -p "$DEST/references" "$DEST/scripts"
+mkdir -p "$DEST"
+echo "$MANIFEST" | grep -v '^#' | grep -v '^version ' | grep -v '^[[:space:]]*$' | while IFS= read -r rel; do
+  mkdir -p "$DEST/$(dirname "$rel")"
+  curl -fsSL "$BASE/$rel" -o "$DEST/$rel"
+  echo "    · $rel"
+done
 
-echo "  Fetching chief-of-staff…"
-curl -fsSL "$BASE/SKILL.md"                          -o "$DEST/SKILL.md"
-curl -fsSL "$BASE/references/onboarding.md"          -o "$DEST/references/onboarding.md"
-curl -fsSL "$BASE/references/workspace-shapes.md"    -o "$DEST/references/workspace-shapes.md"
-curl -fsSL "$BASE/scripts/scan.mjs"                  -o "$DEST/scripts/scan.mjs"
+# stamp the installed version so the next run can compare
+echo "$REMOTE_VERSION" > "$DEST/VERSION"
 
 echo ""
-echo "  ✓ chief-of-staff installed → $DEST"
+echo "  ✓ chief-of-staff v${REMOTE_VERSION} → $DEST"
 echo ""
 echo "  Open Claude and say:  set up my chief of staff"
+echo ""
+echo "  Use it in Cowork or claude.ai too?  Upload the skill once via"
+echo "  Customize → Skills → + → Upload a skill (see PUBLISHING.md)."
 echo ""
 echo "  If your work lives in Microsoft 365, enable the Microsoft 365 connector"
 echo "  in your Claude client (Settings → Connectors) so it can read your files,"

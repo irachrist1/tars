@@ -3,6 +3,60 @@
 All notable changes to TARS are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [1.2.0] — 2026-06-19
+
+A real local index, plus a packaging & update layer that ships it everywhere.
+
+### The indexer (new)
+- New `scripts/indexer.mjs` is TARS's own persistent, ranked full-text index over
+  the user's work folder — pure Node, **no dependencies**, fully local, nothing
+  transmitted. This replaces the previous "indexer" (which was really one-shot
+  scanners + macOS Spotlight) with an index that **persists, is queryable, and is
+  incremental**.
+  - `build` walks once; `query` returns BM25-ranked file hits with snippets in
+    **milliseconds** (single-digit ms on a small corpus), returning only the top N
+    — so it answers "pull last year's numbers" without re-scanning the disk and
+    without spending tokens on a walk.
+  - `update` re-indexes **only files whose mtime changed** and drops deleted ones —
+    the "doesn't re-scan your whole laptop" property.
+  - Full-text for text formats; filename/path tokens (boosted) for office/PDF, with
+    a documented `EXTRACTORS` hook to add body extraction later without changing the
+    index format. Works **cross-platform** — the answer where Spotlight isn't.
+- The skill's search ladder now queries this index as the primary local accelerator
+  (`references/indexer.md`), ahead of `mdfind`.
+
+### Distribution
+- **One source of truth.** New `scripts/package.mjs` walks the skill folder and
+  generates `MANIFEST` (version + every file to ship) and `VERSION` (carried
+  inside the skill to every surface), and builds `dist/chief-of-staff.zip` for
+  cloud upload. `npm run package` regenerates all three.
+- **Installers no longer drift.** `install.sh` and `Install-Tars.ps1` now read the
+  MANIFEST and fetch exactly what it lists — fixing the bug where the curl/PowerShell
+  paths shipped without `connectors.mjs` (the v1.1.0 headline feature). Adding the
+  indexer was zero installer edits: it shipped automatically once the manifest
+  regenerated.
+
+### Distribution
+- **One source of truth.** New `scripts/package.mjs` walks the skill folder and
+  generates `MANIFEST` (version + every file to ship) and `VERSION` (carried
+  inside the skill to every surface), and builds `dist/chief-of-staff.zip` for
+  cloud upload. `npm run package` regenerates all three.
+- **Installers no longer drift.** `install.sh` and `Install-Tars.ps1` now read the
+  MANIFEST and fetch exactly what it lists — fixing the bug where the curl/PowerShell
+  paths shipped without `connectors.mjs` (the v1.1.0 headline feature). Add a file
+  to the skill and it ships automatically.
+
+### Updates
+- **Re-running is now an update, not a wall.** All three installers compare the
+  installed `VERSION` to the published one: same → "already up to date"; newer →
+  update in place. The user's `onboarding-seed.md` is preserved across updates;
+  their OneDrive workspace is never touched. `npx … --update` forces a refresh.
+
+### Cross-surface publishing
+- New `PUBLISHING.md` documents the two-world model (local auto-update via
+  re-run; cloud manual upload + re-upload to refresh) and the release checklist.
+  Addresses the publishing-model half of issues #1 and #3.
+
 ## [1.1.0] — 2026-06-17
 
 TARS stops being a file mapper and becomes a map of your whole connected operation.

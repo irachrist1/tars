@@ -6,8 +6,12 @@
 //   npx tars-chief-of-staff --project     # install into ./.claude/skills (this folder only)
 //   npx tars-chief-of-staff --dest <dir>  # install somewhere explicit
 //   npx tars-chief-of-staff --yes         # take defaults, no questions (user scope)
+//   npx tars-chief-of-staff --update      # update an existing install in place
 //   npx tars-chief-of-staff --no-launch   # install only, never open Claude
 //   npx tars-chief-of-staff --uninstall   # remove an installed copy
+//
+// Re-running is safe: if the installed version matches it says so; if it's older
+// it updates in place and keeps your onboarding-seed.md.
 //
 // No dependencies, no network, no telemetry. Copies one folder; optionally launches Claude.
 
@@ -136,25 +140,39 @@ if (val('--dest')) dest = resolve(val('--dest'));
 else if (has('--project')) dest = resolve('.claude', 'skills', SKILL_NAME);
 else dest = userDest; // default to user scope; the interview can refine nothing here
 
-// ---- don't clobber an edited copy silently ---------------------------------
+// ---- version awareness: install fresh, update in place, or skip if current -
+const readVersion = async (dir) =>
+  (await readFile(join(dir, 'VERSION'), 'utf8').catch(() => '')).trim();
+const srcVersion = (await readVersion(SRC)) || 'dev';
+
 let exists = false;
-try { await stat(dest); exists = true; } catch {}
-if (exists && !has('--force')) {
+try { await stat(join(dest, 'SKILL.md')); exists = true; } catch {}
+const destVersion = exists ? await readVersion(dest) : '';
+
+if (exists && destVersion === srcVersion && !has('--force') && !has('--update')) {
+  ok(`✓ already up to date (v${srcVersion}) at ${dest}`);
   if (interactive) {
-    const a = await ask('Already installed here — overwrite?  [y/N]', 'n');
-    if (!a.toLowerCase().startsWith('y')) { ok('Left the existing install untouched.'); process.exit(0); }
+    const a = await ask('Reinstall anyway?  [y/N]', 'n');
+    if (!a.toLowerCase().startsWith('y')) { ok('Nothing to do.'); process.exit(0); }
   } else {
-    die(`already installed at ${dest}\n  re-run with --force to overwrite (your workspace in OneDrive is untouched either way)`);
+    ok('Re-run with --force to reinstall.');
+    process.exit(0);
   }
+} else if (exists && destVersion && destVersion !== srcVersion) {
+  ok(`Updating v${destVersion} → v${srcVersion} (keeping your onboarding-seed.md)…`);
 }
 
-// ---- copy ------------------------------------------------------------------
+// ---- copy (preserving the user's onboarding seed across updates) -----------
 await mkdir(dirname(dest), { recursive: true });
+const seedPath = join(dest, 'onboarding-seed.md');
+let savedSeed = null;
+if (exists) { try { savedSeed = await readFile(seedPath, 'utf8'); } catch {} }
 if (exists) await rm(dest, { recursive: true });
 await cp(SRC, dest, { recursive: true });
+if (savedSeed !== null) { try { await writeFile(seedPath, savedSeed, 'utf8'); } catch {} }
 
 console.log('');
-ok(`✓ installed → ${dest}`);
+ok(`✓ installed v${srcVersion} → ${dest}`);
 console.log('');
 
 // ---- the interview: get most of the setup done before Claude opens ---------

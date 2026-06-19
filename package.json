@@ -1,6 +1,6 @@
 {
   "name": "tars-chief-of-staff",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Give your AI the context it needs to deliver. TARS is a Claude skill that maps your whole connected operation — files plus every Claude connector (Linear, Notion, Granola, Gmail, Calendar) — and hands the right context to your AI on command. Built for the solo professional. Map + on-device (Spotlight/Golden Gate) and connector search + precedents + quiet self-maintenance.",
   "license": "MIT",
   "repository": {
@@ -31,6 +31,7 @@
   },
   "scripts": {
     "install-skill": "node bin/install.mjs",
+    "package": "node scripts/package.mjs",
     "scan": "node scripts/precommit-scan.mjs",
     "install-hooks": "ln -sf ../../scripts/precommit-scan.mjs .git/hooks/pre-commit && chmod +x scripts/precommit-scan.mjs && echo 'pre-commit hook installed'"
   },
