@@ -26,5 +26,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $null = [System.Management.Automation.Language.Parser]::ParseFile('Install-Tars.ps1', [ref]$null, [ref]$errs)
-          if ($errs) { $errs; exit 1 }
+          $tokens = $null
+          $errors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseFile("$PWD/Install-Tars.ps1", [ref]$tokens, [ref]$errors)
+          if ($errors) { $errors | Format-List *; exit 1 }
