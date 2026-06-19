@@ -31,6 +31,20 @@ import { fileURLToPath } from 'node:url';
 import { homedir, tmpdir } from 'node:os';
 import { createInterface } from 'node:readline/promises';
 import { spawnSync } from 'node:child_process';
+import {
+  detectWorkFolder as detectWorkFolderShared,
+  defaultSkillDest,
+  skillSource,
+  readVersion as readVersionShared,
+  indexStore,
+} from './lib/paths.mjs';
+import { runDoctor, printDoctor } from './lib/doctor.mjs';
+import { runStatus } from './lib/status.mjs';
+import { runIndexCommand } from './lib/index-cli.mjs';
+import { bootstrapFirstRun, needsBootstrap } from './lib/bootstrap.mjs';
+import { runPublish, runExportChatGPT } from './lib/publish.mjs';
+import { runWatchOnce, runMaintenanceCheck, runDemo } from './lib/watch.mjs';
+import { runNodeScript, indexerScript } from './lib/run-script.mjs';
 
 const argv = process.argv.slice(2);
 const has = (f) => argv.includes(f);
@@ -41,13 +55,16 @@ const isTarsCmd = invokedAs === 'tars';
 
 let subcommand = null;
 if (argv[0] && !argv[0].startsWith('-')) {
-  const subs = new Set(['open', 'start', 'install', 'use', 'help']);
+  const subs = new Set([
+    'open', 'start', 'install', 'use', 'help', 'doctor', 'status', 'index',
+    'publish', 'watch', 'export', 'demo', 'maintenance', 'context',
+  ]);
   if (subs.has(argv[0])) subcommand = argv.shift();
 }
 
 const SKILL_NAME = 'chief-of-staff';
 const SRC = join(dirname(fileURLToPath(import.meta.url)), '..', 'skills', SKILL_NAME);
-const userDest = join(homedir(), '.claude', 'skills', SKILL_NAME);
+const userDest = defaultSkillDest();
 
 let dest = userDest;
 if (val('--dest')) dest = resolve(val('--dest'));
@@ -158,6 +175,14 @@ Usage:
   tars install            Full setup interview + install
   tars use                Full skill wrap for Cowork / claude.ai (paste)
   tars use --continue     Handoff prompt after setup
+  tars doctor             Health check (skill, index, connectors, workspace)
+  tars status             Same as doctor — one-screen readiness
+  tars index build|update|query|stats   Local file index
+  tars publish            Build zip + Cowork upload steps
+  tars export --chatgpt   ChatGPT custom-instructions export
+  tars watch --once       Incremental index update (power users)
+  tars demo               Fixture corpus demo
+  tars context "…"        Merged context query (files + connector routes)
 
   npx tars-chief-of-staff           Full install (same as tars install)
   npx tars-chief-of-staff --use     Paste-ready prompt
@@ -226,13 +251,49 @@ async function launchAgent(prompt) {
   process.exit(0);
 }
 
+async function ensureSkillCurrent(dest) {
+  const srcV = await readVersionShared(skillSource());
+  const destV = await readVersionShared(dest);
+  if (destV && srcV && destV !== srcV) {
+    ok(`Updating skill v${destV} → v${srcV}…`);
+    const seedPath = join(dest, 'onboarding-seed.md');
+    let savedSeed = null;
+    try { savedSeed = await readFile(seedPath, 'utf8'); } catch {}
+    await rm(dest, { recursive: true });
+    await cp(SRC, dest, { recursive: true });
+    if (savedSeed) await writeFile(seedPath, savedSeed, 'utf8');
+    await writeFile(join(dest, 'VERSION'), srcV + '\n', 'utf8');
+    return true;
+  }
+  return false;
+}
+
 async function runOpenMode(dest = userDest) {
   const fresh = await ensureSkillInstalled(dest);
-  if (fresh) {
-    ok('✓ chief-of-staff installed');
-    ok('  Tip: run `tars install` once for a personalized setup.');
+  const updated = await ensureSkillCurrent(dest);
+  if (fresh || updated) {
+    ok(`✓ chief-of-staff ${fresh ? 'installed' : 'updated'}`);
+    if (fresh) ok('  Tip: run `tars install` once for a personalized setup.');
     console.log('');
   }
+
+  const workRoot = detectWorkFolder();
+  const seedPath = join(dest, 'onboarding-seed.md');
+  if (workRoot && (await needsBootstrap(workRoot))) {
+    ok('First run — indexing your work before Claude opens…');
+    await bootstrapFirstRun({ workRoot, skillDest: dest, progress: ok });
+    console.log('');
+  } else if (workRoot && indexStore(workRoot)) {
+    const store = indexStore(workRoot);
+    try {
+      await stat(join(store, 'index.json'));
+      ok('Refreshing local index…');
+      runNodeScript(indexerScript(), ['update', '--root', workRoot, '--json']);
+    } catch {}
+  }
+
+  await runMaintenanceCheck(workRoot);
+
   const prompt = await openPromptFor(dest);
   if (has('--no-launch')) {
     await offerHandoff(prompt);
@@ -246,6 +307,62 @@ async function runOpenMode(dest = userDest) {
 }
 
 // ---- routing ---------------------------------------------------------------
+if (subcommand === 'doctor' || has('--doctor')) {
+  const tools = val('--tools');
+  printDoctor(await runDoctor({ dest, workRoot: detectWorkFolder(), toolsJson: tools }), { json: has('--json') });
+  process.exit(0);
+}
+
+if (subcommand === 'status') {
+  await runStatus({ dest, workRoot: detectWorkFolder(), toolsJson: val('--tools'), json: has('--json') });
+  process.exit(0);
+}
+
+if (subcommand === 'index') {
+  const idxSub = argv.find(a => ['build', 'update', 'query', 'stats'].includes(a)) || 'query';
+  await runIndexCommand(idxSub, argv.filter(a => a !== 'index'));
+}
+
+if (subcommand === 'publish') {
+  await runPublish();
+  process.exit(0);
+}
+
+if (subcommand === 'watch') {
+  runWatchOnce(val('--root') || detectWorkFolder());
+}
+
+if (subcommand === 'demo') {
+  await runDemo();
+  process.exit(0);
+}
+
+if (subcommand === 'maintenance') {
+  await runMaintenanceCheck(val('--root') || detectWorkFolder());
+  process.exit(0);
+}
+
+if (subcommand === 'export' || has('--export')) {
+  if (has('--chatgpt') || subcommand === 'export') {
+    await runExportChatGPT({ dest: SRC });
+    process.exit(0);
+  }
+  die('export requires --chatgpt (e.g. tars export --chatgpt)');
+}
+
+if (subcommand === 'context') {
+  const q = argv.filter(a => a !== 'context' && !a.startsWith('--')).join(' ') || val('--question');
+  if (!q) die('context needs a question: tars context "prep me for ACME"');
+  const root = val('--root') || detectWorkFolder();
+  const args = ['scripts/context-engine.mjs', q, '--root', root];
+  if (val('--tools')) args.push('--tools', val('--tools'));
+  if (has('--json')) args.push('--json');
+  const r = spawnSync(process.execPath, args, { encoding: 'utf8', cwd: join(dirname(fileURLToPath(import.meta.url)), '..') });
+  if (r.stdout) console.log(r.stdout);
+  if (r.stderr) console.error(r.stderr);
+  process.exit(r.status ?? 1);
+}
+
 if (has('--use') || subcommand === 'use') {
   await runUseMode();
   process.exit(0);
@@ -303,49 +420,8 @@ async function choose(question, options) {
 }
 
 // ---- auto-detect the work folder (OneDrive) --------------------------------
-function findNestedOrgOneDrive(dir, depth = 0, maxDepth = 2) {
-  const found = [];
-  if (depth > maxDepth) return found;
-  let entries;
-  try { entries = readdirSync(dir); } catch { return found; }
-  for (const name of entries) {
-    const p = join(dir, name);
-    try { if (!statSync(p).isDirectory()) continue; } catch { continue; }
-    if (/^OneDrive\s*-\s*\S/i.test(name) && !/personal/i.test(name)) found.push(p);
-    if (depth < maxDepth) found.push(...findNestedOrgOneDrive(p, depth + 1, maxDepth));
-  }
-  return found;
-}
-
 function detectWorkFolder() {
-  const home = homedir();
-  const candidates = [];
-  if (process.platform === 'darwin') {
-    const cs = join(home, 'Library', 'CloudStorage');
-    try {
-      for (const d of readdirSync(cs)) {
-        if (/^OneDrive/i.test(d)) candidates.push(join(cs, d));
-      }
-    } catch {}
-  }
-  if (process.platform === 'win32') {
-    try {
-      for (const name of readdirSync(home)) {
-        if (!/^OneDrive/i.test(name)) continue;
-        const top = join(home, name);
-        try { if (statSync(top).isDirectory()) candidates.push(top); } catch {}
-        candidates.push(...findNestedOrgOneDrive(top));
-      }
-    } catch {}
-  } else {
-    for (const name of ['OneDrive', 'OneDrive - Personal']) {
-      const p = join(home, name);
-      try { if (statSync(p).isDirectory()) candidates.push(p); } catch {}
-    }
-  }
-  const unique = [...new Set(candidates)];
-  const org = unique.find(p => /OneDrive\s*-\s*\S/i.test(p) && !/personal/i.test(p));
-  return org || unique[0] || null;
+  return detectWorkFolderShared();
 }
 
 async function ask(question, def) {
@@ -523,10 +599,10 @@ if (interactive) {
 
   // TARS runs inside Claude today. Be honest about that rather than implying
   // a ChatGPT path that doesn't exist yet.
-  const tools = await choose('TARS runs inside Claude today (ChatGPT is coming). Do you also use ChatGPT?', [
-    { label: 'Just Claude', key: 'claude', recommended: true },
+  const tools = await choose('Which AI tools do you use?', [
+    { label: 'Claude only', key: 'claude', recommended: true },
     { label: 'Claude and ChatGPT', key: 'both' },
-    { label: 'Mostly ChatGPT — I\'ll try it in Claude', key: 'chatgpt' },
+    { label: 'Mostly ChatGPT — export with `tars export --chatgpt`', key: 'chatgpt' },
   ]);
 
   const guard = await choose('What should TARS never do without asking you first?', [
@@ -580,16 +656,15 @@ prove yourself on a real meeting prep ("prep me for the 3pm call") with a citati
   ok(`  · ${work.label}`);
   ok(`  · Work folder: ${workFolder}`);
   ok(`  · Meetings & notes: ${meetings.label}`);
-  ok(`  · Running in Claude${tools.key === 'claude' ? '' : ' (ChatGPT support is coming)'}`);
+  ok(`  · Primary: ${tools.label}${tools.key !== 'claude' ? ' — run `tars export --chatgpt` for ChatGPT' : ''}`);
   ok(`  · Surfaces: ${surfaces.label}`);
   ok(`  · I'll never ${guardText} without asking`);
   console.log('');
 
   if (surfaces.key !== 'code') {
     ok('One more step so it works on Cowork and claude.ai (not just this machine):');
-    ok('  npm run package  → dist/chief-of-staff.zip  (from the TARS repo)');
+    ok('  tars publish   — builds the zip and shows upload steps');
     ok('  Claude → Customize → Skills → + → Upload a skill');
-    ok('  See references/publishing.md in the skill folder for details.');
     console.log('');
   }
 

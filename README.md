@@ -34,6 +34,13 @@ npm install -g tars-chief-of-staff
 tars                  # installs if needed, opens Claude with the right prompt
 tars install          # full personalized setup interview
 tars use              # copy-paste prompt for Cowork / claude.ai
+tars doctor           # verify skill, index, connectors, workspace
+tars publish          # zip + Cowork upload steps
+```
+
+**skills.sh:**
+```sh
+npx skills add irachrist1/tars
 ```
 
 **Claude Code** (paste as a message, Claude runs it):
@@ -57,15 +64,15 @@ Then open Claude and say: **"set up my chief of staff"**
 
 ## Here is how it works.
 
-**It reads your work first.** First time you open it, TARS goes through your files, emails, calendar. It builds a live index of your operation. You explain nothing. It just reads.
+**It reads your work first.** First time you open it, TARS scans your files, seeds connector routes, and builds a local index before Claude opens. You explain nothing. It just reads. Verify anytime with `tars doctor`.
 
-**It keeps a map, not a copy.** Your files stay where they are. TARS keeps a short index inside your own storage. A new hire who walked every filing cabinet on day one and always knows which drawer to open.
+**It keeps a map, not a copy.** Your files stay where they are. TARS keeps a short index inside your own storage (`<work folder>/.tars-index` and `Chief of Staff/`). A new hire who walked every filing cabinet on day one and always knows which drawer to open.
 
-**It spots patterns, not just keywords.** It connects your proposal to the meeting notes to the email thread. Asks once when it cannot place something. Records the answer. Never asks again.
+**It spots patterns, not just keywords.** `tars context "prep ACME 3pm"` merges file hits with connector routes (mail, calendar, meetings). It connects your proposal to the meeting notes to the email thread. Asks once when it cannot place something. Records the answer. Never asks again.
 
-**It drafts the way you do.** It pulls the last two proposals you wrote and follows them. Your structure, your voice, your precedents. Not a template.
+**It drafts the way you do.** `scripts/precedents.mjs` pulls the last similar docs by client and type. Your structure, your voice, your precedents. Not a template.
 
-**It stays current without making a thing out of it.** After each session, if anything changed, it updates its own notes and tells you in one line. No summary. No ceremony. Your tools just keep getting smarter.
+**It stays current without making a thing out of it.** `tars open` refreshes the index and runs a quiet maintenance check. After each session, if anything changed, the skill updates its own notes and tells you in one line. No summary. No ceremony. Your tools just keep getting smarter.
 
 ---
 

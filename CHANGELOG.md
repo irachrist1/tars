@@ -3,6 +3,32 @@
 All notable changes to TARS are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [1.3.0] — 2026-06-19
+
+Ship to advertised product — every README promise has a mechanism.
+
+### CLI
+- `tars open` — auto-update stale skill, bootstrap first-run (scan + index + connectors), incremental index refresh, maintenance check
+- `tars doctor` / `tars status` — readiness score 0–100
+- `tars index build|update|query|stats` — wrapper over local BM25 indexer
+- `tars publish` — package zip + Cowork upload steps
+- `tars export --chatgpt` — ChatGPT custom-instructions export
+- `tars watch` — incremental index update for power users
+- `tars context "…"` — merged file + connector route JSON
+- `tars demo` — fixture corpus proof
+
+### Engine
+- `scripts/context-engine.mjs` — entity extract, index query, connector routes
+- `scripts/maintenance.mjs` — workspace caps and LOG fold
+- `scripts/precedents.mjs` — similar doc lookup by client/type
+- `bin/lib/bootstrap.mjs` — pre-Claude first-run seed
+
+### Docs & QA
+- `docs/shipping-audit.md`, `docs/decision-log.md`, `docs/windows-verification.md`, `docs/cowork-publish/`
+- `references/onboarding-screens.md` — Duolingo-style screen map
+- GitHub Actions CI (ubuntu, macos, windows) + `tests/cli/smoke.sh`
+- Removed "ChatGPT is coming" — use `tars export --chatgpt`
+
 ## [1.2.0] — 2026-06-19
 
 A real local index, plus a packaging & update layer that ships it everywhere.
@@ -105,7 +131,7 @@ sets up the exact thing that makes that true.
   Granola / nothing yet), threaded into the seed the skill reads on first run.
 - The connector is surfaced as the step that **turns everything on**, tailored to the
   user's answer, instead of a footnote at the bottom.
-- The "which AI" question is now honest: **TARS runs inside Claude today (ChatGPT is coming).**
+- The "which AI" question lists Claude, Claude+ChatGPT, or ChatGPT with `tars export --chatgpt`.
 - First-run proof defaults to a real **meeting prep** when a calendar is reachable —
   the signature demo now matches the signature claim.
 
