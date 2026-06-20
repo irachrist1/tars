@@ -32,6 +32,17 @@ strongest ideas from the team's exploration branches, implemented cleanly.
   Malformed input degrades gracefully (warns, doesn't crash). `tars doctor` forwards
   `--tools` so its connector check works on those surfaces too.
 
+### Onboarding (first-use feedback)
+- **Write-your-own answers.** Every interview question now offers a "Something else —
+  let me type it" path; the role list adds **Software/engineering** and **Product/operations**,
+  and the work-folder prompt accepts a pasted path. Typed answers flow into the seed.
+- **Cross-surface is part of setup, not a footnote (issue #1).** A new "where else will
+  you use TARS?" question, plus Cowork/claude.ai/mobile `--use` instructions shown *before*
+  the Claude Code handoff — previously the launch `exit`ed before that guidance ever printed.
+- **CLI guidance is honest about `tars` vs `npx`.** The closing summary and `doctor` hints
+  lead with the `npx tars-chief-of-staff …` forms (which work with no global install) and
+  note that the short `tars` command needs `npm i -g`.
+
 ### Fixes (from review)
 - **indexer:** `.obsidian` is now actually indexed (it was double-listed in the skip set,
   so the explicit exception was dead); `update` rebuilds instead of reusing an index built

@@ -60,18 +60,30 @@ function banner() {
 if (!(has('--use') || subcommand === 'use')) banner();
 
 // ---- option-based prompt: returns the chosen option object ------------------
-async function choose(question, options) {
+// Always offers a write-your-own path: if none of the options is flagged
+// freeText, a "Something else — let me type it" entry is appended. Picking a
+// freeText option prompts for text and returns it on `.custom` (and `.label`).
+// Pass { other: false } for genuinely closed/binary questions.
+async function choose(question, options, { other = true } = {}) {
+  const opts = (other && !options.some(o => o.freeText))
+    ? [...options, { label: 'Something else — let me type it', key: 'other', freeText: true }]
+    : options;
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
     console.log(`  ${question}`);
-    options.forEach((o, i) => console.log(`    ${i + 1}) ${o.label}`));
-    const def = options.findIndex(o => o.recommended);
+    opts.forEach((o, i) => console.log(`    ${i + 1}) ${o.label}`));
+    const def = opts.findIndex(o => o.recommended);
     const defN = def >= 0 ? def + 1 : 1;
     const raw = (await rl.question(`  ↳ pick a number  [${defN}]  `)).trim();
     const n = parseInt(raw, 10);
-    const idx = (!raw || isNaN(n) || n < 1 || n > options.length) ? defN - 1 : n - 1;
+    const idx = (!raw || isNaN(n) || n < 1 || n > opts.length) ? defN - 1 : n - 1;
+    const chosen = opts[idx];
+    if (chosen.freeText) {
+      const typed = (await rl.question('  ↳ type it in a few words:  ')).trim();
+      if (typed) { console.log(''); return { ...chosen, label: typed, custom: typed }; }
+    }
     console.log('');
-    return options[idx];
+    return chosen;
   } finally { rl.close(); }
 }
 
@@ -221,7 +233,7 @@ if (subcommand === 'doctor' || has('--doctor')) {
     const r = spawnSync('node', [join(SRC, 'scripts', 'indexer.mjs'), 'stats', '--store', store], { encoding: 'utf8' });
     const m = r.stdout && r.stdout.match(/documents:\s+(\d+)/);
     if (m && Number(m[1]) > 0) add('OK', 'local index', `${m[1]} documents`);
-    else add('WARN', 'local index', `not built — run: tars index build --root "${work}"`);
+    else add('WARN', 'local index', `not built — run: npx tars-chief-of-staff index build --root "${work}"`);
   } else {
     add('WARN', 'local index', 'unknown until the work folder is set');
   }
@@ -299,7 +311,7 @@ console.log('');
 // Short, mostly taps, no typing except your name. Writes a seed the skill reads
 // on first run so it skips the questions and goes straight to proving itself.
 if (interactive) {
-  ok('Five taps and TARS knows who it works for. Let\'s go.');
+  ok('A handful of taps and TARS knows who it works for. Let\'s go.');
   console.log('');
 
   const name = (await ask('What should I call you?', '')) || 'there';
@@ -310,7 +322,9 @@ if (interactive) {
     { label: 'Accounting or audit', key: 'accounting' },
     { label: 'Legal', key: 'legal' },
     { label: 'Founder or executive', key: 'founder' },
-    { label: 'Something else', key: 'other' },
+    { label: 'Software or engineering', key: 'engineering' },
+    { label: 'Product or operations', key: 'product' },
+    { label: 'Something else', key: 'other', freeText: true },
   ]);
 
   const found = detectWorkFolder();
@@ -318,9 +332,10 @@ if (interactive) {
   if (found) {
     const c = await choose(`I found your work folder at:\n     ${found}`, [
       { label: 'Yes, that\'s the one', key: 'yes', recommended: true },
-      { label: 'It\'s somewhere else (I\'ll point you later)', key: 'later' },
-    ]);
-    workFolder = c.key === 'yes' ? found : '(to be confirmed on first run)';
+      { label: 'It\'s somewhere else — paste the path', key: 'other', freeText: true },
+      { label: 'I\'ll point you later', key: 'later' },
+    ], { other: false });
+    workFolder = c.key === 'yes' ? found : (c.custom || '(to be confirmed on first run)');
   } else {
     workFolder = '(to be detected on first run)';
   }
@@ -342,6 +357,16 @@ if (interactive) {
     { label: 'Mostly ChatGPT — I\'ll try it in Claude', key: 'chatgpt' },
   ]);
 
+  // Cross-surface is part of setup, not a footnote (issue #1). Skills can't be
+  // uploaded on Cowork / claude.ai / mobile — those run via the `--use` paste path.
+  const surfaces = await choose('Besides here, where else will you use TARS?', [
+    { label: 'Just here (Claude Code / Desktop)', key: 'local', recommended: true },
+    { label: 'Also Cowork', key: 'cowork' },
+    { label: 'Also claude.ai or mobile', key: 'web' },
+    { label: 'Everywhere I use Claude', key: 'all' },
+  ], { other: false });
+  const crossSurface = surfaces.key !== 'local';
+
   const guard = await choose('What should TARS never do without asking you first?', [
     { label: 'Send email', key: 'email' },
     { label: 'Delete or overwrite my files', key: 'files' },
@@ -354,14 +379,14 @@ if (interactive) {
     files: 'delete or overwrite files',
     post: 'post anywhere on my behalf',
     all: 'send email, delete or overwrite files, or post anywhere on my behalf',
-  }[guard.key];
+  }[guard.key] || guard.custom || guard.label.toLowerCase();
 
   const meetingsConnector = {
     m365: 'Microsoft 365 (Outlook mail + calendar)',
     google: 'Google Calendar',
     granola: 'Granola (or their notes app)',
     none: 'none yet — nudge them to connect a calendar so meeting prep works',
-  }[meetings.key];
+  }[meetings.key] || meetings.custom || meetings.label;
 
   // write the seed the skill reads on first run
   const seed = `# Onboarding seed
@@ -375,6 +400,7 @@ prove yourself on a real meeting prep ("prep me for the 3pm call") with a citati
 - work_folder: ${workFolder}
 - meetings_and_notes: ${meetingsConnector}
 - primary_ai: ${tools.label}
+- other_surfaces: ${crossSurface ? `${surfaces.label} — also offer the cross-surface paste path ("npx tars-chief-of-staff --use")` : 'just this client'}
 - never_without_asking: ${guardText}
 `;
   try {
@@ -396,9 +422,22 @@ prove yourself on a real meeting prep ("prep me for the 3pm call") with a citati
     google: 'Enable the Google Calendar connector in Claude (Settings → Connectors) so I can see your meetings.',
     granola: 'Enable the Granola connector in Claude (Settings → Connectors) so I can read your meeting notes.',
     none: 'When you\'re ready, connect a calendar in Claude (Settings → Connectors) and meeting prep switches on.',
-  }[meetings.key];
+  }[meetings.key] || `Enable the connector for ${meetings.custom || meetings.label} in Claude (Settings → Connectors) so I can read it.`;
   ok('One thing turns everything on:');
   ok(`  ${connectorHint}`);
+  console.log('');
+
+  // Cross-surface: shown here (before the launch handoff, which exits) so it's
+  // never buried. Tailored when the user said they'll use Cowork / web / mobile.
+  if (crossSurface) {
+    const where = { cowork: 'Cowork', web: 'claude.ai or mobile', all: 'Cowork, claude.ai, and mobile' }[surfaces.key] || 'those surfaces';
+    ok(`To use TARS on ${where} — where you can't upload a skill — run this`);
+    ok('in any terminal and paste the output into that chat as your first message:');
+  } else {
+    ok('Want TARS on Cowork, claude.ai, or mobile later (no skill upload there)? Run this');
+    ok('any time and paste the output in as your first message:');
+  }
+  ok('  npx tars-chief-of-staff --use            (add --continue once that workspace exists)');
   console.log('');
 
   // Suggest (never push) the apps that make TARS materially better. Only on
@@ -466,8 +505,11 @@ if (!interactive) {
 }
 
 console.log('');
-ok('Using Cowork or claude.ai (where you can\'t install a skill)? Get a paste-ready prompt:');
-ok('  npx tars-chief-of-staff --use        (add --continue once your workspace exists)');
+ok('TARS commands (these work right now, no global install needed):');
+ok('  npx tars-chief-of-staff doctor       health-check this install');
+ok('  npx tars-chief-of-staff --use        paste-ready prompt for Cowork / claude.ai / mobile');
+ok('  npx tars-chief-of-staff index query "…" --root "<work folder>"');
+ok('Prefer a short `tars` command? Install it once:  npm i -g tars-chief-of-staff');
 console.log('');
 ok('If your work lives in Microsoft 365, enable the Microsoft 365 connector in your');
 ok('Claude client (Settings → Connectors) so it can read your files, mail, and calendar.');
