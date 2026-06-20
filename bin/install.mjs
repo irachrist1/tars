@@ -16,7 +16,7 @@
 // No dependencies, no network, no telemetry. Copies one folder; optionally launches Claude.
 
 import { cp, mkdir, rm, stat, readFile, writeFile, mkdtemp } from 'node:fs/promises';
-import { readdirSync, statSync } from 'node:fs';
+import { readdirSync, statSync, writeSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir, tmpdir } from 'node:os';
@@ -168,7 +168,9 @@ if (has('--use') || subcommand === 'use') {
   const staging = await mkdtemp(join(tmpdir(), 'tars-use-'));
   await cp(SRC, staging, { recursive: true });
   // Plain stdout (no banner) so the whole output is copy-pasteable as one block.
-  process.stdout.write(`You are being given a Skill to run for the user's next request.
+  // Write synchronously to fd 1: process.exit() does not flush an async pipe, so
+  // a plain stdout.write() can be truncated before exit (notably on macOS).
+  writeSync(1, `You are being given a Skill to run for the user's next request.
 
 Use the following SKILL.md as your instructions:
 
