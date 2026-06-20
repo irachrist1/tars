@@ -23,8 +23,20 @@ Write-Host ""
 $dest = if ($env:DEST) { $env:DEST } else { Join-Path $HOME ".claude\skills\chief-of-staff" }
 $base = "https://raw.githubusercontent.com/irachrist1/tars/main/skills/chief-of-staff"
 
-# --- what version is published, and what (if anything) is installed? ---------
-try { $remoteVersion = ((Invoke-WebRequest -Uri "$base/VERSION" -UseBasicParsing).Content).Trim() } catch { $remoteVersion = "unknown" }
+# --- fetch the manifest FIRST: it carries both the version line and the file
+# list, so the version we stamp and the files we install always agree (no
+# separate VERSION fetch that could drift out of sync with the manifest). ------
+try {
+    $manifest = (Invoke-WebRequest -Uri "$base/MANIFEST" -UseBasicParsing).Content
+} catch {
+    Write-Error "  could not fetch the manifest from $base/MANIFEST - check your connection and try again."
+    exit 1
+}
+
+$manifestLines = $manifest -split "`n" | ForEach-Object { $_.Trim() }
+$remoteVersion = ($manifestLines | Where-Object { $_ -like "version *" } | Select-Object -First 1) -replace "^version\s+", ""
+if (-not $remoteVersion) { $remoteVersion = "unknown" }
+$files = $manifestLines | Where-Object { $_ -and -not $_.StartsWith("#") -and -not $_.StartsWith("version ") }
 
 $localVersion = ""
 $localVersionPath = Join-Path $dest "VERSION"
@@ -46,25 +58,31 @@ if (Test-Path (Join-Path $dest "SKILL.md")) {
     Write-Host "  Installing v$remoteVersion..."
 }
 
-# --- fetch the manifest, then every file it lists ----------------------------
-try {
-    $manifest = (Invoke-WebRequest -Uri "$base/MANIFEST" -UseBasicParsing).Content
-} catch {
-    Write-Error "  could not fetch the manifest from $base/MANIFEST - check your connection and try again."
-    exit 1
+# --- download every file the manifest lists ----------------------------------
+New-Item -ItemType Directory -Force -Path $dest | Out-Null
+foreach ($rel in $files) {
+    $localPath = Join-Path $dest ($rel -replace "/", "\")
+    New-Item -ItemType Directory -Force -Path (Split-Path $localPath) | Out-Null
+    try {
+        Invoke-WebRequest -Uri "$base/$rel" -OutFile $localPath -UseBasicParsing
+    } catch {
+        Write-Error "  failed to download $rel - install aborted (nothing claimed)."
+        exit 1
+    }
+    Write-Host "    . $rel"
 }
 
-New-Item -ItemType Directory -Force -Path $dest | Out-Null
-$manifest -split "`n" |
-    ForEach-Object { $_.Trim() } |
-    Where-Object { $_ -and -not $_.StartsWith("#") -and -not $_.StartsWith("version ") } |
-    ForEach-Object {
-        $rel = $_
-        $localPath = Join-Path $dest ($rel -replace "/", "\")
-        New-Item -ItemType Directory -Force -Path (Split-Path $localPath) | Out-Null
-        Invoke-WebRequest -Uri "$base/$rel" -OutFile $localPath -UseBasicParsing
-        Write-Host "    . $rel"
+# --- prune files removed in newer releases (keep VERSION + onboarding-seed.md)-
+$keep = New-Object System.Collections.Generic.HashSet[string]
+foreach ($rel in $files) { [void]$keep.Add(($rel -replace "/", "\")) }
+[void]$keep.Add("VERSION"); [void]$keep.Add("onboarding-seed.md")
+Get-ChildItem -Path $dest -Recurse -File | ForEach-Object {
+    $relLocal = $_.FullName.Substring($dest.Length).TrimStart("\")
+    if (-not $keep.Contains($relLocal)) {
+        Remove-Item -Force $_.FullName
+        Write-Host "    - removed $relLocal (no longer in release)"
     }
+}
 
 # stamp the installed version so the next run can compare
 Set-Content -Path $localVersionPath -Value $remoteVersion -NoNewline

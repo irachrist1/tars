@@ -23,10 +23,20 @@ printf '  by Christian Tonny · github.com/irachrist1/tars\n\n'
 DEST="${DEST:-$HOME/.claude/skills/chief-of-staff}"
 BASE="https://raw.githubusercontent.com/irachrist1/tars/main/skills/chief-of-staff"
 
-# --- what version is published, and what (if anything) is installed? ---------
-REMOTE_VERSION="$(curl -fsSL "$BASE/VERSION" 2>/dev/null | tr -d ' \r\n' || true)"
+# --- fetch the manifest FIRST: it carries both the version line and the file
+# list, so the version we stamp and the files we install always agree (no
+# separate VERSION fetch that could drift out of sync with the manifest). ------
+MANIFEST="$(curl -fsSL "$BASE/MANIFEST" 2>/dev/null || true)"
+if [ -z "$MANIFEST" ]; then
+  echo "  error: could not fetch the manifest from $BASE/MANIFEST" >&2
+  echo "         check your connection and try again." >&2
+  exit 1
+fi
+REMOTE_VERSION="$(echo "$MANIFEST" | sed -n 's/^version //p' | tr -d ' \r\n')"
 [ -z "$REMOTE_VERSION" ] && REMOTE_VERSION="unknown"
+files=$(echo "$MANIFEST" | grep -v '^#' | grep -v '^version ' | grep -v '^[[:space:]]*$')
 
+# --- what (if anything) is installed? ----------------------------------------
 LOCAL_VERSION=""
 [ -f "$DEST/VERSION" ] && LOCAL_VERSION="$(tr -d ' \r\n' < "$DEST/VERSION")"
 
@@ -46,21 +56,11 @@ else
   echo "  Installing v${REMOTE_VERSION}…"
 fi
 
-# --- fetch the manifest, then every file it lists ----------------------------
-# The manifest is the source of truth — add a file to the skill and it ships
-# here automatically once package.mjs regenerates the manifest.
-MANIFEST="$(curl -fsSL "$BASE/MANIFEST" 2>/dev/null || true)"
-if [ -z "$MANIFEST" ]; then
-  echo "  error: could not fetch the manifest from $BASE/MANIFEST" >&2
-  echo "         check your connection and try again." >&2
-  exit 1
-fi
-
+# --- download every file the manifest lists ----------------------------------
+# Loop in the main shell (not a pipe subshell) so a failed download actually
+# stops the installer. Manifest paths never contain spaces, so word-splitting
+# the list is safe.
 mkdir -p "$DEST"
-# Build the file list first, then loop in the main shell (not a pipe subshell) so
-# a failed download actually stops the installer instead of being swallowed.
-# Manifest paths never contain spaces, so word-splitting the list is safe.
-files=$(echo "$MANIFEST" | grep -v '^#' | grep -v '^version ' | grep -v '^[[:space:]]*$')
 for rel in $files; do
   mkdir -p "$DEST/$(dirname "$rel")"
   if ! curl -fsSL "$BASE/$rel" -o "$DEST/$rel"; then
@@ -69,6 +69,18 @@ for rel in $files; do
   fi
   echo "    · $rel"
 done
+
+# --- prune files removed in newer releases (keep VERSION + onboarding-seed.md)-
+# An overlay update would otherwise leave behind files that no longer ship,
+# drifting the install away from the released skill.
+keep="$(printf '%s\nVERSION\nonboarding-seed.md\n' "$files")"
+( cd "$DEST" && find . -type f 2>/dev/null | sed 's#^\./##' ) | while IFS= read -r existing; do
+  if ! printf '%s\n' "$keep" | grep -qxF "$existing"; then
+    rm -f "$DEST/$existing"
+    echo "    - removed $existing (no longer in release)"
+  fi
+done
+find "$DEST" -mindepth 1 -type d -empty -delete 2>/dev/null || true
 
 # stamp the installed version so the next run can compare
 echo "$REMOTE_VERSION" > "$DEST/VERSION"

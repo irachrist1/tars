@@ -19,6 +19,8 @@ import { join, relative, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
+function fail(msg) { console.error(`  error: ${msg}`); process.exit(1); }
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SKILL_DIR = join(ROOT, 'skills', 'chief-of-staff');
 const DIST = join(ROOT, 'dist');
@@ -29,21 +31,29 @@ const EXCLUDE = new Set(['MANIFEST', 'VERSION', 'onboarding-seed.md', '.DS_Store
 
 const version = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;
 
-// Walk the skill folder, collect relative paths (posix-style for URL fetching).
+// Collect the files to ship from GIT-TRACKED contents only, so a stray local
+// artifact (a scratch file, a .tars-index/, anything uncommitted) can never leak
+// into the manifest/zip. Fall back to a filesystem walk only outside a git tree.
+function trackedFiles() {
+  const r = spawnSync('git', ['ls-files', '-z', 'skills/chief-of-staff'], { cwd: ROOT, encoding: 'utf8' });
+  if (r.error || r.status !== 0 || !r.stdout) return null;
+  return r.stdout.split('\0').filter(Boolean)
+    .map((p) => relative('skills/chief-of-staff', p).split('\\').join('/'));
+}
 function walk(dir) {
   const out = [];
   for (const name of readdirSync(dir)) {
     if (name.startsWith('.')) continue; // never ship hidden files/dirs (e.g. a stray .tars-index/)
     const abs = join(dir, name);
     if (statSync(abs).isDirectory()) { out.push(...walk(abs)); continue; }
-    const rel = relative(SKILL_DIR, abs).split('\\').join('/');
-    if (EXCLUDE.has(name)) continue;
-    out.push(rel);
+    out.push(relative(SKILL_DIR, abs).split('\\').join('/'));
   }
-  return out.sort();
+  return out;
 }
 
-const files = walk(SKILL_DIR);
+const files = (trackedFiles() ?? walk(SKILL_DIR))
+  .filter((rel) => !EXCLUDE.has(rel.split('/').pop()))
+  .sort();
 if (!files.includes('SKILL.md')) {
   console.error('  error: SKILL.md not found in the skill folder — refusing to package');
   process.exit(1);
@@ -69,22 +79,18 @@ for (const f of files) console.log(`      ${f}`);
 // --- the upload-ready zip for cloud surfaces --------------------------------
 // Cowork / claude.ai have no publish API — skills are uploaded via the web UI
 // (Customize → Skills → + → Upload a skill), which expects the SKILL.md folder
-// at the zip root. So we zip the `chief-of-staff/` folder itself.
+// at the zip root. We zip exactly the manifest files (plus MANIFEST/VERSION) —
+// an explicit list, so nothing untracked on disk can leak into the bundle.
 if (!noZip) {
   mkdirSync(DIST, { recursive: true });
   const zipPath = join(DIST, 'chief-of-staff.zip');
   rmSync(zipPath, { force: true });
-  const r = spawnSync(
-    'zip',
-    ['-r', '-q', zipPath, 'chief-of-staff',
-     '-x', 'chief-of-staff/onboarding-seed.md', '-x', '*/.DS_Store'],
-    { cwd: join(ROOT, 'skills'), stdio: 'inherit' }
-  );
+  const entries = [...files, 'MANIFEST', 'VERSION'].map((f) => `chief-of-staff/${f}`);
+  const r = spawnSync('zip', ['-q', zipPath, ...entries], { cwd: join(ROOT, 'skills'), stdio: 'inherit' });
   if (r.error || r.status !== 0) {
-    console.error('  ! could not build the zip (is `zip` installed?) — MANIFEST/VERSION are still updated');
-  } else {
-    console.log(`  ✓ upload bundle → dist/chief-of-staff.zip`);
+    fail('could not build dist/chief-of-staff.zip (is `zip` installed?). MANIFEST/VERSION were updated; re-run once zip is available, or pass --no-zip.');
   }
+  console.log(`  ✓ upload bundle → dist/chief-of-staff.zip`);
 }
 
 console.log('');

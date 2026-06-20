@@ -65,7 +65,7 @@ const TEXT_EXT = new Set([
 const EXTRACTORS = Object.create(null);
 
 const SKIP_DIR = new Set([
-  '.git', '.svn', '.hg', 'node_modules', '.obsidian', '.trash', '.Trash', '.tmp',
+  '.git', '.svn', '.hg', 'node_modules', '.trash', '.Trash', '.tmp',
   '.cache', 'Caches', '__pycache__', '.venv', 'venv', 'dist', 'build', '.next',
   'target', 'vendor', 'Library', 'AppData', '$RECYCLE.BIN',
   'System Volume Information', '.tars-index',
@@ -163,7 +163,14 @@ async function build({ incremental }) {
   try { if (!(await stat(rootAbs)).isDirectory()) die(`not a folder: ${rootAbs}`); }
   catch { die(`cannot read: ${rootAbs}`); }
 
-  const prev = incremental ? await loadIndex() : null;
+  // Reuse the existing index only when updating the SAME root. If --store points
+  // at an index built for a different folder, mtime checks would wrongly skip
+  // files — so fall back to a clean full build instead.
+  let prev = incremental ? await loadIndex() : null;
+  if (prev?.meta?.root && resolve(prev.meta.root) !== rootAbs) {
+    console.error(`  note: index at ${STORE} was built for ${prev.meta.root}; rebuilding for ${rootAbs}`);
+    prev = null;
+  }
   // docs keyed by relPath: { id, mtimeMs, len }
   const docs = prev?.meta?.docs ? { ...prev.meta.docs } : Object.create(null);
   const postings = prev?.postings ? prev.postings : Object.create(null);

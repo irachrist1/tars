@@ -3,6 +3,37 @@
 All notable changes to TARS are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [1.3.0] — 2026-06-20
+
+Make the cross-surface promise real, and a `tars` command to drive it. Folds in the
+strongest ideas from the team's exploration branches, implemented cleanly.
+
+### Cross-surface
+- **`npx tars-chief-of-staff --use`** (or `tars use`) prints a paste-ready prompt that
+  wraps `SKILL.md` and stages its supporting files to a temp dir — so the chief of
+  staff runs on **Cowork / claude.ai**, where a skill can't be installed. `--continue`
+  switches the prompt to "continue as my chief of staff." This is the cross-surface
+  answer until a publish API exists (issues #1, #3). New `references/handoff.md`; the
+  skill now offers both a launch path and a paste path and never assumes Claude Code.
+
+### CLI
+- A short **`tars`** command (second bin) alongside `tars-chief-of-staff`.
+- **`tars doctor`** — health-checks an install (skill version, work folder, local index,
+  connectors) and exits non-zero on a blocking issue. **`tars index <build|update|query|stats>`**
+  wraps the indexer. **`tars help`**.
+- **`tests/smoke.mjs`** (`npm test`) covers packager + indexer + CLI; GitHub Actions CI
+  runs it on ubuntu/macos/windows, plus `install.sh` shellcheck.
+
+### Fixes (from review)
+- **indexer:** `.obsidian` is now actually indexed (it was double-listed in the skip set,
+  so the explicit exception was dead); `update` rebuilds instead of reusing an index built
+  for a different `--root`; doc examples carry the required locator flag.
+- **installers:** the version is read from `MANIFEST` (one source — `VERSION` and the file
+  list can no longer disagree); updates now **prune files removed in newer releases** instead
+  of leaving them behind; per-file download failures abort on Windows too.
+- **package.mjs:** ships only git-tracked files (no stray local artifact can leak into the
+  manifest or zip) and fails fast if the zip can't be built.
+
 ## [1.2.0] — 2026-06-19
 
 A real local index, plus a packaging & update layer that ships it everywhere.

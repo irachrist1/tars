@@ -20,13 +20,14 @@ what makes "pull last year's ACME numbers" feel instant and stay cheap.
 node scripts/indexer.mjs build  --root "<their work folder>"
 
 # Ask it anything. --json gives you a compact, parse-ready result.
-node scripts/indexer.mjs query  "acme 2024 audit fees" --json --top 8
+# Pass --root (to locate <root>/.tars-index) or --store directly.
+node scripts/indexer.mjs query  "acme 2024 audit fees" --root "<their work folder>" --json --top 8
 
 # Refresh cheaply — re-indexes only files whose mtime changed, drops deleted ones.
 node scripts/indexer.mjs update --root "<their work folder>"
 
 # Sanity check.
-node scripts/indexer.mjs stats
+node scripts/indexer.mjs stats  --root "<their work folder>"
 ```
 
 The index lives at `<work folder>/.tars-index/` by default (override with
