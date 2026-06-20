@@ -3,6 +3,100 @@
 All notable changes to TARS are recorded here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [1.3.0] — 2026-06-20
+
+Make the cross-surface promise real, and a `tars` command to drive it. Folds in the
+strongest ideas from the team's exploration branches, implemented cleanly.
+
+### Cross-surface
+- **`npx tars-chief-of-staff --use`** (or `tars use`) prints a paste-ready prompt that
+  wraps `SKILL.md` and stages its supporting files to a temp dir — so the chief of
+  staff runs on **Cowork / claude.ai**, where a skill can't be installed. `--continue`
+  switches the prompt to "continue as my chief of staff." This is the cross-surface
+  answer until a publish API exists (issues #1, #3). New `references/handoff.md`; the
+  skill now offers both a launch path and a paste path and never assumes Claude Code.
+
+### CLI
+- A short **`tars`** command (second bin) alongside `tars-chief-of-staff`.
+- **`tars doctor`** — health-checks an install (skill version, work folder, local index,
+  connectors) and exits non-zero on a blocking issue. **`tars index <build|update|query|stats>`**
+  wraps the indexer. **`tars help`**.
+- **`tests/smoke.mjs`** (`npm test`) covers packager + indexer + CLI; GitHub Actions CI
+  runs it on ubuntu/macos/windows, plus `install.sh` shellcheck.
+
+### Connectors
+- **`connectors.mjs` now has a fallback (issue #6).** When `claude mcp list` can't
+  run (Claude Desktop, Cowork, claude.ai), pass the session's `mcp__*` tool names via
+  `--tools`, `CONNECTOR_TOOLS_JSON`, or stdin and it builds the connector map from
+  those — classifying each against the registry — instead of producing nothing.
+  Malformed input degrades gracefully (warns, doesn't crash). `tars doctor` forwards
+  `--tools` so its connector check works on those surfaces too.
+
+### Onboarding (first-use feedback)
+- **Write-your-own answers.** Every interview question now offers a "Something else —
+  let me type it" path; the role list adds **Software/engineering** and **Product/operations**,
+  and the work-folder prompt accepts a pasted path. Typed answers flow into the seed.
+- **Cross-surface is part of setup, not a footnote (issue #1).** A new "where else will
+  you use TARS?" question, plus Cowork/claude.ai/mobile `--use` instructions shown *before*
+  the Claude Code handoff — previously the launch `exit`ed before that guidance ever printed.
+- **CLI guidance is honest about `tars` vs `npx`.** The closing summary and `doctor` hints
+  lead with the `npx tars-chief-of-staff …` forms (which work with no global install) and
+  note that the short `tars` command needs `npm i -g`.
+
+### Fixes (from review)
+- **indexer:** `.obsidian` is now actually indexed (it was double-listed in the skip set,
+  so the explicit exception was dead); `update` rebuilds instead of reusing an index built
+  for a different `--root`; doc examples carry the required locator flag.
+- **installers:** the version is read from `MANIFEST` (one source — `VERSION` and the file
+  list can no longer disagree); updates now **prune files removed in newer releases** instead
+  of leaving them behind; per-file download failures abort on Windows too.
+- **package.mjs:** ships only git-tracked files (no stray local artifact can leak into the
+  manifest or zip) and fails fast if the zip can't be built.
+
+## [1.2.0] — 2026-06-19
+
+A real local index, plus a packaging & update layer that ships it everywhere.
+
+### The indexer (new)
+- New `scripts/indexer.mjs` is TARS's own persistent, ranked full-text index over
+  the user's work folder — pure Node, **no dependencies**, fully local, nothing
+  transmitted. This replaces the previous "indexer" (which was really one-shot
+  scanners + macOS Spotlight) with an index that **persists, is queryable, and is
+  incremental**.
+  - `build` walks once; `query` returns BM25-ranked file hits with snippets in
+    **milliseconds** (single-digit ms on a small corpus), returning only the top N
+    — so it answers "pull last year's numbers" without re-scanning the disk and
+    without spending tokens on a walk.
+  - `update` re-indexes **only files whose mtime changed** and drops deleted ones —
+    the "doesn't re-scan your whole laptop" property.
+  - Full-text for text formats; filename/path tokens (boosted) for office/PDF, with
+    a documented `EXTRACTORS` hook to add body extraction later without changing the
+    index format. Works **cross-platform** — the answer where Spotlight isn't.
+- The skill's search ladder now queries this index as the primary local accelerator
+  (`references/indexer.md`), ahead of `mdfind`.
+
+### Distribution
+- **One source of truth.** New `scripts/package.mjs` walks the skill folder and
+  generates `MANIFEST` (version + every file to ship) and `VERSION` (carried
+  inside the skill to every surface), and builds `dist/chief-of-staff.zip` for
+  cloud upload. `npm run package` regenerates all three.
+- **Installers no longer drift.** `install.sh` and `Install-Tars.ps1` now read the
+  MANIFEST and fetch exactly what it lists — fixing the bug where the curl/PowerShell
+  paths shipped without `connectors.mjs` (the v1.1.0 headline feature). Adding the
+  indexer was zero installer edits: it shipped automatically once the manifest
+  regenerated.
+
+### Updates
+- **Re-running is now an update, not a wall.** All three installers compare the
+  installed `VERSION` to the published one: same → "already up to date"; newer →
+  update in place. The user's `onboarding-seed.md` is preserved across updates;
+  their OneDrive workspace is never touched. `npx … --update` forces a refresh.
+
+### Cross-surface publishing
+- New `PUBLISHING.md` documents the two-world model (local auto-update via
+  re-run; cloud manual upload + re-upload to refresh) and the release checklist.
+  Addresses the publishing-model half of issues #1 and #3.
+
 ## [1.1.0] — 2026-06-17
 
 TARS stops being a file mapper and becomes a map of your whole connected operation.

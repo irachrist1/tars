@@ -6,26 +6,35 @@
 //   npx tars-chief-of-staff --project     # install into ./.claude/skills (this folder only)
 //   npx tars-chief-of-staff --dest <dir>  # install somewhere explicit
 //   npx tars-chief-of-staff --yes         # take defaults, no questions (user scope)
+//   npx tars-chief-of-staff --update      # update an existing install in place
 //   npx tars-chief-of-staff --no-launch   # install only, never open Claude
 //   npx tars-chief-of-staff --uninstall   # remove an installed copy
 //
+// Re-running is safe: if the installed version matches it says so; if it's older
+// it updates in place and keeps your onboarding-seed.md.
+//
 // No dependencies, no network, no telemetry. Copies one folder; optionally launches Claude.
 
-import { cp, mkdir, rm, stat, readFile, writeFile } from 'node:fs/promises';
-import { readdirSync, statSync } from 'node:fs';
+import { cp, mkdir, rm, stat, readFile, writeFile, mkdtemp } from 'node:fs/promises';
+import { readdirSync, statSync, writeSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { createInterface } from 'node:readline/promises';
 import { spawnSync } from 'node:child_process';
 
 const argv = process.argv.slice(2);
 const has = (f) => argv.includes(f);
 const val = (f) => (argv.includes(f) ? argv[argv.indexOf(f) + 1] : null);
+// First non-flag arg is a subcommand (so `tars use`, `tars doctor` work too).
+const subcommand = argv[0] && !argv[0].startsWith('-') ? argv[0] : null;
 
 const SKILL_NAME = 'chief-of-staff';
 const SRC = join(dirname(fileURLToPath(import.meta.url)), '..', 'skills', SKILL_NAME);
 const userDest = join(homedir(), '.claude', 'skills', SKILL_NAME);
+
+const PROMPT_SETUP = 'set up my chief of staff';
+const PROMPT_CONTINUE = 'continue as my chief of staff';
 
 // A real person at a terminal vs. an agent/CI running us through a pipe.
 const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY) && !has('--yes');
@@ -46,21 +55,35 @@ function banner() {
   console.log('  by Christian Tonny · github.com/irachrist1/tars');
   console.log('');
 }
-banner();
+// Skip the banner on machine-output paths: `--use` prints a single copy-paste
+// block (Cowork / claude.ai), so anything before it would get pasted too.
+if (!(has('--use') || subcommand === 'use')) banner();
 
 // ---- option-based prompt: returns the chosen option object ------------------
-async function choose(question, options) {
+// Always offers a write-your-own path: if none of the options is flagged
+// freeText, a "Something else — let me type it" entry is appended. Picking a
+// freeText option prompts for text and returns it on `.custom` (and `.label`).
+// Pass { other: false } for genuinely closed/binary questions.
+async function choose(question, options, { other = true } = {}) {
+  const opts = (other && !options.some(o => o.freeText))
+    ? [...options, { label: 'Something else — let me type it', key: 'other', freeText: true }]
+    : options;
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
     console.log(`  ${question}`);
-    options.forEach((o, i) => console.log(`    ${i + 1}) ${o.label}`));
-    const def = options.findIndex(o => o.recommended);
+    opts.forEach((o, i) => console.log(`    ${i + 1}) ${o.label}`));
+    const def = opts.findIndex(o => o.recommended);
     const defN = def >= 0 ? def + 1 : 1;
     const raw = (await rl.question(`  ↳ pick a number  [${defN}]  `)).trim();
     const n = parseInt(raw, 10);
-    const idx = (!raw || isNaN(n) || n < 1 || n > options.length) ? defN - 1 : n - 1;
+    const idx = (!raw || isNaN(n) || n < 1 || n > opts.length) ? defN - 1 : n - 1;
+    const chosen = opts[idx];
+    if (chosen.freeText) {
+      const typed = (await rl.question('  ↳ type it in a few words:  ')).trim();
+      if (typed) { console.log(''); return { ...chosen, label: typed, custom: typed }; }
+    }
     console.log('');
-    return options[idx];
+    return chosen;
   } finally { rl.close(); }
 }
 
@@ -122,6 +145,119 @@ if (has('--uninstall')) {
   process.exit(0);
 }
 
+// ---- help ------------------------------------------------------------------
+if (has('--help') || has('-h') || subcommand === 'help') {
+  console.log(`  tars — your AI's chief of staff
+
+  Install / open
+    npx tars-chief-of-staff            install the skill, then open Claude
+    npx tars-chief-of-staff --update   update an installed copy in place
+    npx tars-chief-of-staff --uninstall
+
+  Use on a surface without skill upload (Cowork, claude.ai)
+    npx tars-chief-of-staff --use            print a paste-ready prompt (wraps SKILL.md)
+    npx tars-chief-of-staff --use --continue same, for an existing workspace
+
+  Check / search
+    npx tars-chief-of-staff doctor           health-check an install
+    npx tars-chief-of-staff index <build|update|query|stats> ...   drive the local index
+
+  With a global install (npm i -g tars-chief-of-staff) the same commands are
+  available as:  tars · tars use · tars doctor · tars index …
+`);
+  process.exit(0);
+}
+
+// ---- --use : the cross-surface paste-wrap (Cowork / claude.ai) --------------
+// Some surfaces can't install a skill. This prints a self-contained prompt that
+// wraps SKILL.md and stages its supporting files to a temp dir, so the skill
+// runs anywhere you can paste — the pattern Matt Pocock's `skills use` uses.
+if (has('--use') || subcommand === 'use') {
+  try { await readFile(join(SRC, 'SKILL.md'), 'utf8'); }
+  catch { die(`cannot read ${join(SRC, 'SKILL.md')} — run from the tars package`); }
+  const skillMd = await readFile(join(SRC, 'SKILL.md'), 'utf8');
+  const request = val('--prompt') || (has('--continue') ? PROMPT_CONTINUE : PROMPT_SETUP);
+  const staging = await mkdtemp(join(tmpdir(), 'tars-use-'));
+  await cp(SRC, staging, { recursive: true });
+  // Plain stdout (no banner) so the whole output is copy-pasteable as one block.
+  // Write synchronously to fd 1: process.exit() does not flush an async pipe, so
+  // a plain stdout.write() can be truncated before exit (notably on macOS).
+  writeSync(1, `You are being given a Skill to run for the user's next request.
+
+Use the following SKILL.md as your instructions:
+
+<SKILL.md>
+${skillMd.trimEnd()}
+</SKILL.md>
+
+This skill's supporting files (references/, scripts/) were staged at:
+${staging}
+When SKILL.md points to a relative path, read it from there.
+
+User request: ${request}
+`);
+  process.exit(0);
+}
+
+// ---- index : thin wrapper over the skill's indexer -------------------------
+// `tars index query "..." --root <dir>` instead of the long node path.
+if (subcommand === 'index') {
+  const r = spawnSync('node', [join(SRC, 'scripts', 'indexer.mjs'), ...argv.slice(1)], { stdio: 'inherit' });
+  process.exit(r.status ?? 0);
+}
+
+// ---- doctor : is the install actually wired up? ----------------------------
+if (subcommand === 'doctor' || has('--doctor')) {
+  const readV = async (d) => (await readFile(join(d, 'VERSION'), 'utf8').catch(() => '')).trim();
+  const dest = val('--dest') ? resolve(val('--dest')) : userDest;
+  const work = val('--root') ? resolve(val('--root')) : detectWorkFolder();
+  const rows = [];
+  const add = (level, label, detail) => rows.push({ level, label, detail });
+
+  // 1) skill installed and current?
+  const srcV = (await readV(SRC)) || 'dev';
+  const destV = await readV(dest);
+  let installed = false;
+  try { await stat(join(dest, 'SKILL.md')); installed = true; } catch {}
+  if (!installed) add('FAIL', 'skill', `not installed at ${dest} — run: npx tars-chief-of-staff`);
+  else if (destV && destV !== srcV) add('WARN', 'skill', `installed v${destV}, v${srcV} available — run --update`);
+  else add('OK', 'skill', `v${destV || srcV} at ${dest}`);
+
+  // 2) work folder known?
+  if (work) add('OK', 'work folder', work);
+  else add('WARN', 'work folder', 'not detected — pass --root or confirm on first run');
+
+  // 3) local index built for that work folder?
+  if (work) {
+    const store = join(work, '.tars-index');
+    const r = spawnSync('node', [join(SRC, 'scripts', 'indexer.mjs'), 'stats', '--store', store], { encoding: 'utf8' });
+    const m = r.stdout && r.stdout.match(/documents:\s+(\d+)/);
+    if (m && Number(m[1]) > 0) add('OK', 'local index', `${m[1]} documents`);
+    else add('WARN', 'local index', `not built — run: npx tars-chief-of-staff index build --root "${work}"`);
+  } else {
+    add('WARN', 'local index', 'unknown until the work folder is set');
+  }
+
+  // 4) connectors reachable? (forward --tools so the session's mcp__* list can
+  // be used on surfaces where `claude mcp list` can't run)
+  const connArgs = [join(SRC, 'scripts', 'connectors.mjs'), '--json'];
+  if (val('--tools')) connArgs.push('--tools', val('--tools'));
+  const c = spawnSync('node', connArgs, { encoding: 'utf8' });
+  let connN = -1;
+  try { const d = JSON.parse(c.stdout || '{}'); connN = (d.connected || d.connectors || []).length; } catch {}
+  if (connN > 0) add('OK', 'connectors', `${connN} mapped`);
+  else add('WARN', 'connectors', 'none mapped here — enable in Claude (Settings → Connectors)');
+
+  console.log('');
+  ok('TARS doctor');
+  for (const r of rows) console.log(`    [${r.level.padEnd(4)}] ${r.label.padEnd(13)} ${r.detail}`);
+  const failed = rows.filter((r) => r.level === 'FAIL').length;
+  console.log('');
+  ok(failed ? `${failed} blocking issue(s) — fix the FAIL line(s) above.` : 'No blocking issues. Warnings are optional improvements.');
+  console.log('');
+  process.exit(failed ? 1 : 0);
+}
+
 // ---- sanity: we are shipping a real skill ----------------------------------
 try {
   const head = await readFile(join(SRC, 'SKILL.md'), 'utf8');
@@ -136,32 +272,46 @@ if (val('--dest')) dest = resolve(val('--dest'));
 else if (has('--project')) dest = resolve('.claude', 'skills', SKILL_NAME);
 else dest = userDest; // default to user scope; the interview can refine nothing here
 
-// ---- don't clobber an edited copy silently ---------------------------------
+// ---- version awareness: install fresh, update in place, or skip if current -
+const readVersion = async (dir) =>
+  (await readFile(join(dir, 'VERSION'), 'utf8').catch(() => '')).trim();
+const srcVersion = (await readVersion(SRC)) || 'dev';
+
 let exists = false;
-try { await stat(dest); exists = true; } catch {}
-if (exists && !has('--force')) {
+try { await stat(join(dest, 'SKILL.md')); exists = true; } catch {}
+const destVersion = exists ? await readVersion(dest) : '';
+
+if (exists && destVersion === srcVersion && !has('--force') && !has('--update')) {
+  ok(`✓ already up to date (v${srcVersion}) at ${dest}`);
   if (interactive) {
-    const a = await ask('Already installed here — overwrite?  [y/N]', 'n');
-    if (!a.toLowerCase().startsWith('y')) { ok('Left the existing install untouched.'); process.exit(0); }
+    const a = await ask('Reinstall anyway?  [y/N]', 'n');
+    if (!a.toLowerCase().startsWith('y')) { ok('Nothing to do.'); process.exit(0); }
   } else {
-    die(`already installed at ${dest}\n  re-run with --force to overwrite (your workspace in OneDrive is untouched either way)`);
+    ok('Re-run with --force to reinstall.');
+    process.exit(0);
   }
+} else if (exists && destVersion && destVersion !== srcVersion) {
+  ok(`Updating v${destVersion} → v${srcVersion} (keeping your onboarding-seed.md)…`);
 }
 
-// ---- copy ------------------------------------------------------------------
+// ---- copy (preserving the user's onboarding seed across updates) -----------
 await mkdir(dirname(dest), { recursive: true });
+const seedPath = join(dest, 'onboarding-seed.md');
+let savedSeed = null;
+if (exists) { try { savedSeed = await readFile(seedPath, 'utf8'); } catch {} }
 if (exists) await rm(dest, { recursive: true });
 await cp(SRC, dest, { recursive: true });
+if (savedSeed !== null) { try { await writeFile(seedPath, savedSeed, 'utf8'); } catch {} }
 
 console.log('');
-ok(`✓ installed → ${dest}`);
+ok(`✓ installed v${srcVersion} → ${dest}`);
 console.log('');
 
 // ---- the interview: get most of the setup done before Claude opens ---------
 // Short, mostly taps, no typing except your name. Writes a seed the skill reads
 // on first run so it skips the questions and goes straight to proving itself.
 if (interactive) {
-  ok('Five taps and TARS knows who it works for. Let\'s go.');
+  ok('A handful of taps and TARS knows who it works for. Let\'s go.');
   console.log('');
 
   const name = (await ask('What should I call you?', '')) || 'there';
@@ -172,7 +322,9 @@ if (interactive) {
     { label: 'Accounting or audit', key: 'accounting' },
     { label: 'Legal', key: 'legal' },
     { label: 'Founder or executive', key: 'founder' },
-    { label: 'Something else', key: 'other' },
+    { label: 'Software or engineering', key: 'engineering' },
+    { label: 'Product or operations', key: 'product' },
+    { label: 'Something else', key: 'other', freeText: true },
   ]);
 
   const found = detectWorkFolder();
@@ -180,9 +332,10 @@ if (interactive) {
   if (found) {
     const c = await choose(`I found your work folder at:\n     ${found}`, [
       { label: 'Yes, that\'s the one', key: 'yes', recommended: true },
-      { label: 'It\'s somewhere else (I\'ll point you later)', key: 'later' },
-    ]);
-    workFolder = c.key === 'yes' ? found : '(to be confirmed on first run)';
+      { label: 'It\'s somewhere else — paste the path', key: 'other', freeText: true },
+      { label: 'I\'ll point you later', key: 'later' },
+    ], { other: false });
+    workFolder = c.key === 'yes' ? found : (c.custom || '(to be confirmed on first run)');
   } else {
     workFolder = '(to be detected on first run)';
   }
@@ -204,6 +357,16 @@ if (interactive) {
     { label: 'Mostly ChatGPT — I\'ll try it in Claude', key: 'chatgpt' },
   ]);
 
+  // Cross-surface is part of setup, not a footnote (issue #1). Skills can't be
+  // uploaded on Cowork / claude.ai / mobile — those run via the `--use` paste path.
+  const surfaces = await choose('Besides here, where else will you use TARS?', [
+    { label: 'Just here (Claude Code / Desktop)', key: 'local', recommended: true },
+    { label: 'Also Cowork', key: 'cowork' },
+    { label: 'Also claude.ai or mobile', key: 'web' },
+    { label: 'Everywhere I use Claude', key: 'all' },
+  ], { other: false });
+  const crossSurface = surfaces.key !== 'local';
+
   const guard = await choose('What should TARS never do without asking you first?', [
     { label: 'Send email', key: 'email' },
     { label: 'Delete or overwrite my files', key: 'files' },
@@ -216,14 +379,14 @@ if (interactive) {
     files: 'delete or overwrite files',
     post: 'post anywhere on my behalf',
     all: 'send email, delete or overwrite files, or post anywhere on my behalf',
-  }[guard.key];
+  }[guard.key] || guard.custom || guard.label.toLowerCase();
 
   const meetingsConnector = {
     m365: 'Microsoft 365 (Outlook mail + calendar)',
     google: 'Google Calendar',
     granola: 'Granola (or their notes app)',
     none: 'none yet — nudge them to connect a calendar so meeting prep works',
-  }[meetings.key];
+  }[meetings.key] || meetings.custom || meetings.label;
 
   // write the seed the skill reads on first run
   const seed = `# Onboarding seed
@@ -237,6 +400,7 @@ prove yourself on a real meeting prep ("prep me for the 3pm call") with a citati
 - work_folder: ${workFolder}
 - meetings_and_notes: ${meetingsConnector}
 - primary_ai: ${tools.label}
+- other_surfaces: ${crossSurface ? `${surfaces.label} — also offer the cross-surface paste path ("npx tars-chief-of-staff --use")` : 'just this client'}
 - never_without_asking: ${guardText}
 `;
   try {
@@ -258,9 +422,22 @@ prove yourself on a real meeting prep ("prep me for the 3pm call") with a citati
     google: 'Enable the Google Calendar connector in Claude (Settings → Connectors) so I can see your meetings.',
     granola: 'Enable the Granola connector in Claude (Settings → Connectors) so I can read your meeting notes.',
     none: 'When you\'re ready, connect a calendar in Claude (Settings → Connectors) and meeting prep switches on.',
-  }[meetings.key];
+  }[meetings.key] || `Enable the connector for ${meetings.custom || meetings.label} in Claude (Settings → Connectors) so I can read it.`;
   ok('One thing turns everything on:');
   ok(`  ${connectorHint}`);
+  console.log('');
+
+  // Cross-surface: shown here (before the launch handoff, which exits) so it's
+  // never buried. Tailored when the user said they'll use Cowork / web / mobile.
+  if (crossSurface) {
+    const where = { cowork: 'Cowork', web: 'claude.ai or mobile', all: 'Cowork, claude.ai, and mobile' }[surfaces.key] || 'those surfaces';
+    ok(`To use TARS on ${where} — where you can't upload a skill — run this`);
+    ok('in any terminal and paste the output into that chat as your first message:');
+  } else {
+    ok('Want TARS on Cowork, claude.ai, or mobile later (no skill upload there)? Run this');
+    ok('any time and paste the output in as your first message:');
+  }
+  ok('  npx tars-chief-of-staff --use            (add --continue once that workspace exists)');
   console.log('');
 
   // Suggest (never push) the apps that make TARS materially better. Only on
@@ -327,6 +504,12 @@ if (!interactive) {
   ok('  set up my chief of staff');
 }
 
+console.log('');
+ok('TARS commands (these work right now, no global install needed):');
+ok('  npx tars-chief-of-staff doctor       health-check this install');
+ok('  npx tars-chief-of-staff --use        paste-ready prompt for Cowork / claude.ai / mobile');
+ok('  npx tars-chief-of-staff index query "…" --root "<work folder>"');
+ok('Prefer a short `tars` command? Install it once:  npm i -g tars-chief-of-staff');
 console.log('');
 ok('If your work lives in Microsoft 365, enable the Microsoft 365 connector in your');
 ok('Claude client (Settings → Connectors) so it can read your files, mail, and calendar.');
