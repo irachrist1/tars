@@ -24,6 +24,14 @@ strongest ideas from the team's exploration branches, implemented cleanly.
 - **`tests/smoke.mjs`** (`npm test`) covers packager + indexer + CLI; GitHub Actions CI
   runs it on ubuntu/macos/windows, plus `install.sh` shellcheck.
 
+### Connectors
+- **`connectors.mjs` now has a fallback (issue #6).** When `claude mcp list` can't
+  run (Claude Desktop, Cowork, claude.ai), pass the session's `mcp__*` tool names via
+  `--tools`, `CONNECTOR_TOOLS_JSON`, or stdin and it builds the connector map from
+  those — classifying each against the registry — instead of producing nothing.
+  Malformed input degrades gracefully (warns, doesn't crash). `tars doctor` forwards
+  `--tools` so its connector check works on those surfaces too.
+
 ### Fixes (from review)
 - **indexer:** `.obsidian` is now actually indexed (it was double-listed in the skip set,
   so the explicit exception was dead); `update` rebuilds instead of reusing an index built

@@ -13,6 +13,7 @@ import { spawnSync } from 'node:child_process';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const INDEXER = join(ROOT, 'skills', 'chief-of-staff', 'scripts', 'indexer.mjs');
+const CONNECTORS = join(ROOT, 'skills', 'chief-of-staff', 'scripts', 'connectors.mjs');
 const INSTALL = join(ROOT, 'bin', 'install.mjs');
 const PACKAGE = join(ROOT, 'scripts', 'package.mjs');
 
@@ -61,6 +62,19 @@ try {
 
   check('query without locator errors cleanly', /needs --store/.test(node([INDEXER, 'query', 'x']).stderr));
   check('--top rejects non-positive', /positive integer/.test(node([INDEXER, 'query', 'x', '--store', store, '--top', '-1']).stderr));
+
+  // --- connectors fallback (issue #6) ---------------------------------------
+  // Force the `claude` CLI to be unreachable by pointing PATH at the (binary-free)
+  // work dir, then invoke node by absolute path so the script itself still runs.
+  const conn = spawnSync(process.execPath,
+    [CONNECTORS, '--json', '--tools', JSON.stringify(['mcp__claude_ai_Gmail__x', 'mcp__plugin_linear_linear__y'])],
+    { encoding: 'utf8', env: { ...process.env, PATH: work } });
+  const connData = JSON.parse(conn.stdout);
+  check('connectors fallback builds a map from session tools', connData.available === true && connData.connected.length === 2);
+  check('connectors fallback classifies Gmail + Linear', connData.connected.map((c) => c.key).sort().join(',') === 'gmail,linear');
+  const connBad = spawnSync(process.execPath, [CONNECTORS, '--json', '--tools', 'NOT-JSON{'],
+    { encoding: 'utf8', env: { ...process.env, PATH: work } });
+  check('connectors handles malformed --tools gracefully', connBad.status === 0 && JSON.parse(connBad.stdout).available === false);
 
   // --- CLI surface ----------------------------------------------------------
   const use = node([INSTALL, '--use']);

@@ -222,8 +222,11 @@ if (subcommand === 'doctor' || has('--doctor')) {
     add('WARN', 'local index', 'unknown until the work folder is set');
   }
 
-  // 4) connectors reachable?
-  const c = spawnSync('node', [join(SRC, 'scripts', 'connectors.mjs'), '--json'], { encoding: 'utf8' });
+  // 4) connectors reachable? (forward --tools so the session's mcp__* list can
+  // be used on surfaces where `claude mcp list` can't run)
+  const connArgs = [join(SRC, 'scripts', 'connectors.mjs'), '--json'];
+  if (val('--tools')) connArgs.push('--tools', val('--tools'));
+  const c = spawnSync('node', connArgs, { encoding: 'utf8' });
   let connN = -1;
   try { const d = JSON.parse(c.stdout || '{}'); connN = (d.connected || d.connectors || []).length; } catch {}
   if (connN > 0) add('OK', 'connectors', `${connN} mapped`);
