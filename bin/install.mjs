@@ -55,7 +55,9 @@ function banner() {
   console.log('  by Christian Tonny · github.com/irachrist1/tars');
   console.log('');
 }
-banner();
+// Skip the banner on machine-output paths: `--use` prints a single copy-paste
+// block (Cowork / claude.ai), so anything before it would get pasted too.
+if (!(has('--use') || subcommand === 'use')) banner();
 
 // ---- option-based prompt: returns the chosen option object ------------------
 async function choose(question, options) {
